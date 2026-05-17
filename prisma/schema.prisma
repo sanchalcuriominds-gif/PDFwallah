@@ -1,0 +1,111 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Class {
+  id        String    @id @default(cuid())
+  name      String    @unique
+  slug      String    @unique
+  sortOrder Int       @default(0)
+  subjects  Subject[]
+  pdfs      Pdf[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model Subject {
+  id        String    @id @default(cuid())
+  name      String
+  slug      String
+  classId   String
+  class     Class     @relation(fields: [classId], references: [id], onDelete: Cascade)
+  chapters  Chapter[]
+  pdfs      Pdf[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@unique([classId, slug])
+}
+
+model Chapter {
+  id        String    @id @default(cuid())
+  name      String
+  slug      String
+  subjectId String
+  subject   Subject   @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  topics    Topic[]
+  pdfs      Pdf[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@unique([subjectId, slug])
+}
+
+model Topic {
+  id        String    @id @default(cuid())
+  name      String
+  slug      String
+  chapterId String
+  chapter   Chapter   @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  pdfs      Pdf[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@unique([chapterId, slug])
+}
+
+model Pdf {
+  id            String    @id @default(cuid())
+  title         String
+  description   String    @default("")
+  price         Float     @default(0)
+  thumbnailPath String?
+  pdfPath       String
+  pageCount     Int       @default(0)
+  featured      Boolean   @default(false)
+  published     Boolean   @default(true)
+  downloadCount Int       @default(0)
+  salesCount    Int       @default(0)
+  classId       String
+  subjectId     String
+  chapterId     String
+  topicId       String
+  class         Class     @relation(fields: [classId], references: [id])
+  subject       Subject   @relation(fields: [subjectId], references: [id])
+  chapter       Chapter   @relation(fields: [chapterId], references: [id])
+  topic         Topic     @relation(fields: [topicId], references: [id])
+  orders        Order[]
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model Order {
+  id              String   @id @default(cuid())
+  razorpayOrderId String?
+  razorpayPaymentId String?
+  razorpaySignature  String?
+  amount          Float
+  currency        String   @default("INR")
+  status          String   @default("created")
+  pdfId           String
+  pdf             Pdf      @relation(fields: [pdfId], references: [id])
+  downloadToken   String?
+  tokenExpiry     DateTime?
+  watermarkText   String?
+  buyerEmail      String?
+  buyerPhone      String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model AdminSession {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
