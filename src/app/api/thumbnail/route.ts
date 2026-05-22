@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db';
-import { getThumbnailFilePath, getPdfFilePath, fileExists } from '@/lib/file-utils';
+import { getThumbnailFilePath, fileExists } from '@/lib/file-utils';
+import { isSupabaseConfigured, getSignedUrl, THUMBNAIL_BUCKET } from '@/lib/supabase';
 import fs from 'fs';
 
 // GET /api/thumbnail?path=xxx - Serve thumbnail image
@@ -18,10 +18,19 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid path' }, { status: 400 });
     }
 
+    // Try Supabase Storage first
+    if (isSupabaseConfigured()) {
+      const { url, error } = await getSignedUrl(THUMBNAIL_BUCKET, thumbPath, 3600); // 1 hour
+
+      if (!error && url) {
+        return NextResponse.redirect(url);
+      }
+    }
+
+    // Fallback to local file
     const filePath = getThumbnailFilePath(thumbPath);
 
     if (!fileExists(filePath)) {
-      // Return a default placeholder
       return new NextResponse(null, { status: 404 });
     }
 

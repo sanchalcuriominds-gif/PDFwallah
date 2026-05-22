@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { validateDownloadToken, invalidateDownloadToken } from '@/lib/download-token';
 import { getPdfFilePath, fileExists } from '@/lib/file-utils';
+import { isSupabaseConfigured, getSignedUrl, PDF_BUCKET } from '@/lib/supabase';
 import fs from 'fs';
 import path from 'path';
 
@@ -20,23 +21,29 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid or expired download link' }, { status: 403 });
     }
 
+    // Invalidate the token after use (single-use download link)
+    await invalidateDownloadToken(token);
+
+    // Try Supabase Storage first
+    if (isSupabaseConfigured()) {
+      const { url, error } = await getSignedUrl(PDF_BUCKET, result.pdfPath, 300); // 5 min
+
+      if (!error && url) {
+        // Redirect to the signed Supabase URL
+        return NextResponse.redirect(url);
+      }
+    }
+
+    // Fallback to local file storage
     const filePath = getPdfFilePath(result.pdfPath);
 
     if (!fileExists(filePath)) {
       return NextResponse.json({ error: 'PDF file not found' }, { status: 404 });
     }
 
-    // Read the PDF file
     const fileBuffer = fs.readFileSync(filePath);
-
-    // Create a watermarked version info (in production, use pdf-lib to add watermark)
-    // For now, we'll serve the file with appropriate headers
     const fileName = path.basename(result.pdfPath);
 
-    // Invalidate the token after use (single-use download link)
-    await invalidateDownloadToken(token);
-
-    // Return the PDF file
     return new NextResponse(fileBuffer, {
       headers: {
         'Content-Type': 'application/pdf',
