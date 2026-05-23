@@ -22,17 +22,24 @@ export async function createAdminSession(): Promise<string> {
 
 export async function validateAdminSession(token: string): Promise<boolean> {
   if (!token) return false;
-  
+
   const session = await db.adminSession.findUnique({
     where: { token }
   });
-  
+
   if (!session) return false;
-  if (session.expiresAt < new Date()) {
+
+  // Supabase returns dates as strings, Prisma returns Date objects
+  // Handle both cases
+  const expiresAt = typeof session.expiresAt === 'string'
+    ? new Date(session.expiresAt)
+    : session.expiresAt;
+
+  if (expiresAt < new Date()) {
     await db.adminSession.delete({ where: { token } });
     return false;
   }
-  
+
   return true;
 }
 

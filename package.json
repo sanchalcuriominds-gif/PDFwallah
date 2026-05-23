@@ -11,7 +11,7 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:reset": "prisma migrate reset",
-    "vercel-build": "cp prisma/schema.production.prisma prisma/schema.prisma && prisma generate && next build",
+    "vercel-build": "cp prisma/schema.production.prisma prisma/schema.prisma.backup && cp prisma/schema.production.prisma prisma/schema.prisma && prisma generate && next build",
     "postinstall": "prisma generate"
   },
   "dependencies": {
