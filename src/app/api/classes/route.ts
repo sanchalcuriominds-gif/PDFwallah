@@ -10,8 +10,13 @@ export async function GET() {
       }
     });
     return NextResponse.json(classes);
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error fetching classes:', error);
-    return NextResponse.json({ error: 'Failed to fetch classes' }, { status: 500 });
+    // Return more details for debugging
+    return NextResponse.json({ 
+      error: 'Failed to fetch classes', 
+      details: error?.message || String(error),
+      dbUrl: process.env.DATABASE_URL ? 'SET (' + process.env.DATABASE_URL.substring(0, 30) + '...)' : 'NOT SET',
+    }, { status: 500 });
   }
 }
