@@ -1,14 +1,23 @@
-import { createClient } from '@supabase/supabase-js'
+import { createClient, SupabaseClient } from '@supabase/supabase-js'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
 
-// Public client (for frontend)
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+// Lazy-initialized clients - only created when actually needed
+let _supabaseAdmin: SupabaseClient | null = null
 
-// Admin client with service role (for backend - bypasses RLS)
-export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey)
+// Admin client with service role (for backend - bypasses RLS) - lazy init
+export function getSupabaseAdmin(): SupabaseClient {
+  if (!_supabaseAdmin && isSupabaseConfigured()) {
+    _supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey)
+  }
+  if (!_supabaseAdmin) {
+    // Return a dummy client that won't crash - methods will check isSupabaseConfigured first
+    _supabaseAdmin = createClient('https://placeholder.supabase.co', 'placeholder-key')
+  }
+  return _supabaseAdmin
+}
 
 // Storage bucket names
 export const PDF_BUCKET = 'pdfs'
@@ -21,8 +30,13 @@ export async function uploadFile(
   file: File | Buffer | ArrayBuffer,
   contentType: string = 'application/pdf'
 ): Promise<{ path: string; error: string | null }> {
+  if (!isSupabaseConfigured()) {
+    return { path: '', error: 'Supabase not configured' }
+  }
+
   try {
-    const { data, error } = await supabaseAdmin.storage
+    const admin = getSupabaseAdmin()
+    const { data, error } = await admin.storage
       .from(bucket)
       .upload(filePath, file, {
         contentType,
@@ -43,7 +57,9 @@ export async function uploadFile(
 
 // Get a public URL for a file
 export function getPublicUrl(bucket: string, filePath: string): string {
-  const { data } = supabaseAdmin.storage.from(bucket).getPublicUrl(filePath)
+  if (!isSupabaseConfigured()) return ''
+  const admin = getSupabaseAdmin()
+  const { data } = admin.storage.from(bucket).getPublicUrl(filePath)
   return data.publicUrl
 }
 
@@ -53,8 +69,13 @@ export async function getSignedUrl(
   filePath: string,
   expiresIn: number = 60 // seconds
 ): Promise<{ url: string; error: string | null }> {
+  if (!isSupabaseConfigured()) {
+    return { url: '', error: 'Supabase not configured' }
+  }
+
   try {
-    const { data, error } = await supabaseAdmin.storage
+    const admin = getSupabaseAdmin()
+    const { data, error } = await admin.storage
       .from(bucket)
       .createSignedUrl(filePath, expiresIn)
 
@@ -73,8 +94,13 @@ export async function deleteFile(
   bucket: string,
   filePath: string
 ): Promise<{ error: string | null }> {
+  if (!isSupabaseConfigured()) {
+    return { error: 'Supabase not configured' }
+  }
+
   try {
-    const { error } = await supabaseAdmin.storage.from(bucket).remove([filePath])
+    const admin = getSupabaseAdmin()
+    const { error } = await admin.storage.from(bucket).remove([filePath])
     if (error) {
       return { error: error.message }
     }
@@ -86,5 +112,5 @@ export async function deleteFile(
 
 // Check if Supabase is configured
 export function isSupabaseConfigured(): boolean {
-  return !!(supabaseUrl && supabaseServiceKey)
+  return !!(supabaseUrl && supabaseServiceKey && supabaseUrl !== '' && supabaseUrl !== 'https://placeholder.supabase.co')
 }

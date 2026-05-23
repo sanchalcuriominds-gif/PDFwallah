@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -67,12 +67,12 @@ model Pdf {
   thumbnailPath   String?
 
   // Preview file - shown to users before purchase (lighter/shorter version)
-  previewFilePath String?   // Storage path for preview PDF (if uploaded)
-  previewFileUrl  String?   // Google Drive or external URL for preview PDF
+  previewFilePath String?
+  previewFileUrl  String?
 
   // Full file - only downloadable after payment
-  fullFilePath    String?   // Storage path for full PDF (if uploaded)
-  fullFileUrl     String?   // Google Drive or external URL for full PDF
+  fullFilePath    String?
+  fullFileUrl     String?
 
   // Legacy compatibility
   pdfPath         String    @default("pdfs/placeholder.pdf")
@@ -83,7 +83,7 @@ model Pdf {
   published       Boolean   @default(true)
   downloadCount   Int       @default(0)
   salesCount      Int       @default(0)
-  fileSize        Int       @default(0)  // Full file size in bytes
+  fileSize        Int       @default(0)
 
   classId         String
   subjectId       String
