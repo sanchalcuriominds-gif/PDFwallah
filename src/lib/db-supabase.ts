@@ -697,6 +697,50 @@ export const orderDb = {
     return data;
   },
 
+  findFirst: async (options?: { where?: any; orderBy?: any; include?: any }) => {
+    const admin = getAdmin();
+
+    // Determine select fields based on include
+    let selectFields = '*, pdf: Pdf(*)';
+    if (options?.include?.pdf) {
+      selectFields = '*, pdf: Pdf(*, class: Class(*), subject: Subject(*), chapter: Chapter(*), topic: Topic(*))';
+    }
+
+    let query = admin.from('Order').select(selectFields);
+
+    if (options?.where) {
+      query = applyWhere(query, options.where);
+    }
+
+    if (options?.orderBy) {
+      query = applyOrderBy(query, options.orderBy);
+    }
+
+    // findFirst returns at most 1 result
+    query = query.limit(1);
+
+    const { data, error } = await query;
+    if (error) throw new Error(error.message);
+
+    // Return the first item or null
+    if (!data || data.length === 0) return null;
+
+    // If include.pdf.select was specified, filter the pdf fields
+    const result = data[0];
+    if (options?.include?.pdf?.select && result.pdf) {
+      const selectFields2 = Object.keys(options.include.pdf.select);
+      const filteredPdf: any = {};
+      for (const field of selectFields2) {
+        if (result.pdf[field] !== undefined) {
+          filteredPdf[field] = result.pdf[field];
+        }
+      }
+      result.pdf = filteredPdf;
+    }
+
+    return result;
+  },
+
   findMany: async (options?: { where?: any; orderBy?: any; limit?: number; take?: number; include?: any }) => {
     const admin = getAdmin();
 
