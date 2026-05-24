@@ -23,6 +23,29 @@ import {
   Shield,
 } from 'lucide-react'
 
+// Extend Window to include Razorpay
+declare global {
+  interface Window {
+    Razorpay: any
+  }
+}
+
+// Load Razorpay checkout script dynamically
+function loadRazorpayScript(): Promise<boolean> {
+  return new Promise((resolve) => {
+    if (window.Razorpay) {
+      resolve(true)
+      return
+    }
+    const script = document.createElement('script')
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js'
+    script.async = true
+    script.onload = () => resolve(true)
+    script.onerror = () => resolve(false)
+    document.body.appendChild(script)
+  })
+}
+
 interface PaymentModalProps {
   isOpen: boolean
   onClose: () => void
@@ -43,6 +66,7 @@ export function PaymentModal({ isOpen, onClose, pdf }: PaymentModalProps) {
   const [state, setState] = useState<PaymentState>('form')
   const [buyerEmail, setBuyerEmail] = useState('')
   const [buyerPhone, setBuyerPhone] = useState('')
+  const [buyerName, setBuyerName] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
   const [downloadToken, setDownloadToken] = useState('')
 
@@ -53,7 +77,13 @@ export function PaymentModal({ isOpen, onClose, pdf }: PaymentModalProps) {
     setErrorMessage('')
 
     try {
-      // Create Razorpay order
+      // Step 1: Load Razorpay checkout script
+      const scriptLoaded = await loadRazorpayScript()
+      if (!scriptLoaded) {
+        throw new Error('Failed to load Razorpay. Please check your internet connection and try again.')
+      }
+
+      // Step 2: Create order on our server
       const orderRes = await fetch('/api/orders/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -70,20 +100,56 @@ export function PaymentModal({ isOpen, onClose, pdf }: PaymentModalProps) {
         throw new Error(orderData.error || 'Failed to create order')
       }
 
-      // Simulate Razorpay payment for demo
-      // In production, this would open the Razorpay checkout modal
-      const mockPaymentId = `pay_${Date.now()}_${Math.random().toString(36).substring(7)}`
-      const mockSignature = `sig_${Date.now()}`
+      // Step 3: Open Razorpay checkout modal
+      const paymentResult = await new Promise<{ razorpayPaymentId: string; razorpayOrderId: string; razorpaySignature: string }>(
+        (resolve, reject) => {
+          const options = {
+            key: orderData.keyId,
+            amount: orderData.amount * 100, // amount in paise
+            currency: orderData.currency,
+            name: 'Vedant Academy',
+            description: pdf.title,
+            image: '/logo.png',
+            order_id: orderData.razorpayOrderId,
+            prefill: {
+              name: buyerName || '',
+              email: buyerEmail || '',
+              contact: buyerPhone || '',
+            },
+            theme: {
+              color: '#059669', // emerald-600
+            },
+            handler: function (response: any) {
+              resolve({
+                razorpayPaymentId: response.razorpay_payment_id,
+                razorpayOrderId: response.razorpay_order_id,
+                razorpaySignature: response.razorpay_signature,
+              })
+            },
+            modal: {
+              ondismiss: function () {
+                reject(new Error('Payment cancelled by user'))
+              },
+            },
+          }
 
-      // Verify payment
+          const rzp = new window.Razorpay(options)
+          rzp.on('payment.failed', function (response: any) {
+            reject(new Error(response.error.description || 'Payment failed'))
+          })
+          rzp.open()
+        }
+      )
+
+      // Step 4: Verify payment on our server
       const verifyRes = await fetch('/api/orders/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           orderId: orderData.orderId,
-          razorpayOrderId: orderData.razorpayOrderId,
-          razorpayPaymentId: mockPaymentId,
-          razorpaySignature: mockSignature,
+          razorpayOrderId: paymentResult.razorpayOrderId,
+          razorpayPaymentId: paymentResult.razorpayPaymentId,
+          razorpaySignature: paymentResult.razorpaySignature,
         }),
       })
 
@@ -105,6 +171,7 @@ export function PaymentModal({ isOpen, onClose, pdf }: PaymentModalProps) {
     setState('form')
     setBuyerEmail('')
     setBuyerPhone('')
+    setBuyerName('')
     setErrorMessage('')
     setDownloadToken('')
     onClose()
@@ -153,7 +220,17 @@ export function PaymentModal({ isOpen, onClose, pdf }: PaymentModalProps) {
         {state === 'form' && (
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">Email (optional)</Label>
+              <Label htmlFor="name">Name (optional)</Label>
+              <Input
+                id="name"
+                type="text"
+                placeholder="Your name"
+                value={buyerName}
+                onChange={(e) => setBuyerName(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="email">Email (for receipt)</Label>
               <Input
                 id="email"
                 type="email"
@@ -191,6 +268,7 @@ export function PaymentModal({ isOpen, onClose, pdf }: PaymentModalProps) {
           <div className="flex flex-col items-center justify-center py-8 space-y-3">
             <Loader2 className="w-10 h-10 text-emerald-600 animate-spin" />
             <p className="text-sm text-muted-foreground">Processing your payment...</p>
+            <p className="text-xs text-muted-foreground">Opening Razorpay checkout...</p>
           </div>
         )}
 
@@ -203,6 +281,9 @@ export function PaymentModal({ isOpen, onClose, pdf }: PaymentModalProps) {
             <div className="text-center space-y-1">
               <p className="font-semibold">Payment Successful!</p>
               <p className="text-sm text-muted-foreground">Your notes are ready to download</p>
+              {buyerEmail && (
+                <p className="text-xs text-muted-foreground">Receipt sent to {buyerEmail}</p>
+              )}
             </div>
             <Button
               onClick={() => {
@@ -213,6 +294,9 @@ export function PaymentModal({ isOpen, onClose, pdf }: PaymentModalProps) {
               <Download className="w-4 h-4 mr-2" />
               Download PDF
             </Button>
+            <p className="text-xs text-muted-foreground text-center">
+              Download link valid for 24 hours · Up to 3 downloads
+            </p>
           </div>
         )}
 
