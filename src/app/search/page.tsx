@@ -3,7 +3,19 @@
 import { useState, useEffect, useCallback, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { motion } from 'framer-motion'
-import { FileText, SlidersHorizontal, X, Search as SearchIcon } from 'lucide-react'
+import {
+  FileText,
+  SlidersHorizontal,
+  X,
+  Search as SearchIcon,
+  Trophy,
+  GraduationCap,
+  TrendingUp,
+  Sparkles,
+  BookOpen,
+  Atom,
+  Stethoscope,
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -47,6 +59,20 @@ interface PdfData {
   topic: { name: string; slug: string }
 }
 
+const competitiveExamOptions = [
+  { value: 'jee', label: 'JEE', icon: Atom, color: 'text-orange-600' },
+  { value: 'neet', label: 'NEET', icon: Stethoscope, color: 'text-red-600' },
+  { value: 'cuet', label: 'CUET', icon: GraduationCap, color: 'text-blue-600' },
+  { value: 'reet', label: 'REET', icon: BookOpen, color: 'text-purple-600' },
+  { value: 'ssc', label: 'SSC', icon: TrendingUp, color: 'text-amber-600' },
+  { value: 'railway', label: 'Railway', icon: TrendingUp, color: 'text-teal-600' },
+]
+
+const popularSearches = [
+  'Physics Notes', 'Chemistry PYQs', 'Maths Formula', 'Biology Notes',
+  'English Grammar', 'Class 10 Notes', 'Class 12 Notes', 'NCERT Solutions',
+]
+
 function SearchContent() {
   const searchParams = useSearchParams()
   const initialQuery = searchParams.get('q') || ''
@@ -56,6 +82,7 @@ function SearchContent() {
   const [query, setQuery] = useState(initialQuery)
   const [selectedClassId, setSelectedClassId] = useState<string>('')
   const [selectedSubjectId, setSelectedSubjectId] = useState<string>('')
+  const [selectedExamType, setSelectedExamType] = useState<string>('')
   const [sort, setSort] = useState(initialSort)
   const [featured, setFeatured] = useState(initialFeatured === 'true')
   const [classes, setClasses] = useState<ClassData[]>([])
@@ -121,19 +148,23 @@ function SearchContent() {
   const clearFilters = () => {
     setSelectedClassId('')
     setSelectedSubjectId('')
+    setSelectedExamType('')
     setSort('newest')
     setFeatured(false)
     setQuery('')
     setPage(1)
   }
 
-  const hasActiveFilters = selectedClassId || selectedSubjectId || featured || query
+  const hasActiveFilters = selectedClassId || selectedSubjectId || selectedExamType || featured || query
 
   const FilterContent = () => (
     <div className="space-y-6">
       {/* Class Filter */}
       <div className="space-y-2">
-        <h3 className="text-sm font-semibold">Class</h3>
+        <h3 className="text-sm font-semibold flex items-center gap-2">
+          <GraduationCap className="w-4 h-4 text-emerald-600" />
+          Class
+        </h3>
         <Select value={selectedClassId} onValueChange={setSelectedClassId}>
           <SelectTrigger>
             <SelectValue placeholder="All Classes" />
@@ -151,7 +182,10 @@ function SearchContent() {
 
       {/* Subject Filter */}
       <div className="space-y-2">
-        <h3 className="text-sm font-semibold">Subject</h3>
+        <h3 className="text-sm font-semibold flex items-center gap-2">
+          <BookOpen className="w-4 h-4 text-emerald-600" />
+          Subject
+        </h3>
         <Select
           value={selectedSubjectId}
           onValueChange={setSelectedSubjectId}
@@ -171,9 +205,35 @@ function SearchContent() {
         </Select>
       </div>
 
+      {/* Competitive Exam Filter */}
+      <div className="space-y-2">
+        <h3 className="text-sm font-semibold flex items-center gap-2">
+          <Trophy className="w-4 h-4 text-indigo-600" />
+          Competitive Exam
+        </h3>
+        <Select value={selectedExamType} onValueChange={setSelectedExamType}>
+          <SelectTrigger>
+            <SelectValue placeholder="All Exams" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Exams</SelectItem>
+            {competitiveExamOptions.map((exam) => (
+              <SelectItem key={exam.value} value={exam.value}>
+                <span className="flex items-center gap-2">
+                  {exam.label}
+                </span>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
       {/* Featured Filter */}
       <div className="space-y-2">
-        <h3 className="text-sm font-semibold">Featured Only</h3>
+        <h3 className="text-sm font-semibold flex items-center gap-2">
+          <Sparkles className="w-4 h-4 text-amber-600" />
+          Featured Only
+        </h3>
         <Button
           variant={featured ? 'default' : 'outline'}
           size="sm"
@@ -220,7 +280,11 @@ function SearchContent() {
         transition={{ duration: 0.4 }}
         className="space-y-4"
       >
-        <h1 className="text-3xl font-bold">Search Notes</h1>
+        <div>
+          <h1 className="text-3xl font-bold">Search Notes</h1>
+          <p className="text-muted-foreground text-sm mt-1">Find the perfect study material for your preparation</p>
+        </div>
+
         <div className="flex items-center gap-2">
           <div className="relative flex-1">
             <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -229,7 +293,7 @@ function SearchContent() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-              placeholder="Search notes, subjects, chapters..."
+              placeholder="Search notes, subjects, chapters, exams..."
               className="pl-10 h-11 bg-background border-border/50 focus:border-emerald-400 focus:ring-emerald-400/20"
             />
           </div>
@@ -260,6 +324,23 @@ function SearchContent() {
             </Sheet>
           </div>
         </div>
+
+        {/* Popular Search Suggestions */}
+        <div className="flex flex-wrap gap-2">
+          <span className="text-xs text-muted-foreground py-1">Popular:</span>
+          {popularSearches.map((term) => (
+            <button
+              key={term}
+              onClick={() => {
+                setQuery(term)
+                setPage(1)
+              }}
+              className="px-2.5 py-1 text-xs rounded-full bg-muted/50 border border-border/50 hover:bg-emerald-50 hover:text-emerald-700 dark:hover:bg-emerald-950 dark:hover:text-emerald-300 transition-colors cursor-pointer"
+            >
+              {term}
+            </button>
+          ))}
+        </div>
       </motion.div>
 
       {/* Active Filters */}
@@ -282,6 +363,13 @@ function SearchContent() {
             <Badge variant="secondary" className="gap-1">
               {subjects.find((s) => s.id === selectedSubjectId)?.name}
               <X className="w-3 h-3 cursor-pointer" onClick={() => setSelectedSubjectId('')} />
+            </Badge>
+          )}
+          {selectedExamType && (
+            <Badge variant="secondary" className="gap-1 bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
+              <Trophy className="w-3 h-3" />
+              {competitiveExamOptions.find((e) => e.value === selectedExamType)?.label}
+              <X className="w-3 h-3 cursor-pointer" onClick={() => setSelectedExamType('')} />
             </Badge>
           )}
           {featured && (

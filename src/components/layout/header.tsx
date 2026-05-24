@@ -1,9 +1,9 @@
 'use client'
 
-import { useState, useCallback, useSyncExternalStore } from 'react'
+import { useState, useCallback, useSyncExternalStore, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { BookOpen, Menu, X, Sun, Moon, Search, Home, Compass } from 'lucide-react'
+import { BookOpen, Menu, X, Sun, Moon, Search, Home, GraduationCap, Trophy } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useTheme } from 'next-themes'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -11,7 +11,8 @@ import { cn } from '@/lib/utils'
 
 const navLinks = [
   { href: '/', label: 'Home', icon: Home },
-  { href: '/search', label: 'Browse', icon: Compass },
+  { href: '/school', label: 'School Notes', icon: GraduationCap },
+  { href: '/competitive', label: 'Competitive Exams', icon: Trophy },
   { href: '/search', label: 'Search', icon: Search },
 ]
 
@@ -36,10 +37,10 @@ export function Header() {
     setIsScrolled(window.scrollY > 10)
   }, [])
 
-  // Scroll listener setup - setState is in callback, not directly in effect
-  if (typeof window !== 'undefined' && !isScrolled) {
+  useEffect(() => {
     window.addEventListener('scroll', handleScroll, { passive: true })
-  }
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [handleScroll])
 
   const toggleMenu = useCallback(() => {
     setIsMenuOpen((prev) => !prev)
@@ -49,20 +50,25 @@ export function Header() {
     setIsMenuOpen(false)
   }, [])
 
+  const isActiveLink = (href: string) => {
+    if (href === '/') return pathname === '/'
+    return pathname.startsWith(href)
+  }
+
   return (
     <header
       className={cn(
         'sticky top-0 z-50 w-full transition-all duration-300',
         isScrolled
-          ? 'bg-background/80 backdrop-blur-lg border-b shadow-sm'
-          : 'bg-background/50 backdrop-blur-sm'
+          ? 'bg-background/95 backdrop-blur-xl border-b shadow-md'
+          : 'bg-background/50 backdrop-blur-sm border-b border-transparent'
       )}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-2 group" onClick={closeMenu}>
-            <div className="relative flex items-center justify-center w-9 h-9 rounded-lg bg-emerald-500 text-white transition-transform group-hover:scale-105">
+          <Link href="/" className="flex items-center gap-2.5 group" onClick={closeMenu}>
+            <div className="relative flex items-center justify-center w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-white transition-transform group-hover:scale-105 shadow-sm">
               <BookOpen className="w-5 h-5" />
             </div>
             <span className="text-lg font-bold tracking-tight">
@@ -73,16 +79,15 @@ export function Header() {
 
           {/* Desktop Nav */}
           <nav className="hidden md:flex items-center gap-1">
-            {navLinks.map((link, index) => {
-              if (index === 2) return null
-              const isActive = pathname === link.href
+            {navLinks.map((link) => {
+              const isActive = isActiveLink(link.href)
               return (
                 <Link key={link.label} href={link.href}>
                   <Button
                     variant={isActive ? 'secondary' : 'ghost'}
                     size="sm"
                     className={cn(
-                      'gap-2 transition-colors',
+                      'gap-2 transition-all duration-200',
                       isActive && 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
                     )}
                   >
@@ -92,12 +97,6 @@ export function Header() {
                 </Link>
               )
             })}
-            <Link href="/search">
-              <Button variant="ghost" size="sm" className="gap-2">
-                <Search className="w-4 h-4" />
-                Search
-              </Button>
-            </Link>
           </nav>
 
           {/* Right side */}
@@ -137,13 +136,6 @@ export function Header() {
               </Button>
             )}
 
-            {/* Admin link */}
-            <Link href="/admin" className="hidden md:block">
-              <Button variant="ghost" size="sm" className="text-muted-foreground text-xs">
-                Admin
-              </Button>
-            </Link>
-
             {/* Mobile menu button */}
             <Button
               variant="ghost"
@@ -167,9 +159,9 @@ export function Header() {
             transition={{ duration: 0.2 }}
             className="md:hidden border-t overflow-hidden"
           >
-            <div className="px-4 py-3 space-y-1 bg-background/95 backdrop-blur-lg">
+            <div className="px-4 py-3 space-y-1 bg-background/95 backdrop-blur-xl">
               {navLinks.map((link) => {
-                const isActive = pathname === link.href
+                const isActive = isActiveLink(link.href)
                 return (
                   <Link key={link.label} href={link.href} onClick={closeMenu}>
                     <Button
@@ -185,11 +177,6 @@ export function Header() {
                   </Link>
                 )
               })}
-              <Link href="/admin" onClick={closeMenu}>
-                <Button variant="ghost" className="w-full justify-start gap-3 text-muted-foreground">
-                  Admin Panel
-                </Button>
-              </Link>
             </div>
           </motion.div>
         )}

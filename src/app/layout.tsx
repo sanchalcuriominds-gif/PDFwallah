@@ -17,15 +17,21 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Vedant Academy - Digital Notes Store",
-  description: "Your trusted digital notes store. Quality study material for CBSE students, curated by experienced educators. Download PDF notes for Class 9-12.",
-  keywords: ["Vedant Academy", "CBSE notes", "PDF notes", "study material", "digital notes", "Class 10", "Class 12", "board exams"],
+  title: "Vedant Academy - Free Study Material for School & Competitive Exams",
+  description: "Notes, PYQs, PDFs & Study Material for Class 9-12, JEE, NEET, CUET, REET, SSC & more. Download instantly.",
+  keywords: [
+    "Vedant Academy", "CBSE notes", "PDF notes", "study material", "digital notes",
+    "Class 9", "Class 10", "Class 11", "Class 12", "board exams",
+    "JEE", "NEET", "CUET", "REET", "SSC", "Railway", "Rajasthan Exams",
+    "previous year questions", "PYQs", "formula sheets", "handwritten notes",
+    "NCERT solutions", "competitive exam preparation", "entrance exam notes",
+  ],
   icons: {
     icon: "/logo.svg",
   },
   openGraph: {
-    title: "Vedant Academy - Digital Notes Store",
-    description: "Quality study material for CBSE students",
+    title: "Vedant Academy - Free Study Material for School & Competitive Exams",
+    description: "Notes, PYQs, PDFs & Study Material for Class 9-12, JEE, NEET, CUET, REET, SSC & more. Download instantly.",
     type: "website",
   },
 };
