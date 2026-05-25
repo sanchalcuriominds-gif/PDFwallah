@@ -22,6 +22,8 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { PdfGrid } from '@/components/pdf/pdf-grid'
+import { PdfCardSkeleton } from '@/components/pdf/pdf-card-skeleton'
+import { Breadcrumbs } from '@/components/layout/breadcrumbs'
 
 interface PdfData {
   id: string
@@ -154,6 +156,11 @@ export default function CompetitivePage() {
 
   return (
     <div className="space-y-0 pb-8">
+      {/* Breadcrumbs */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
+        <Breadcrumbs items={[{ label: 'Competitive Exams' }]} />
+      </div>
+
       {/* Hero Section */}
       <section className="relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 dark:from-indigo-950/30 dark:via-purple-950/20 dark:to-pink-950/30" />
@@ -291,8 +298,8 @@ export default function CompetitivePage() {
         </motion.div>
       </section>
 
-      {/* Featured Notes (if any exist) */}
-      {!isLoading && featuredPdfs.length > 0 && (
+      {/* Featured Notes */}
+      {!isLoading && featuredPdfs.length > 0 ? (
         <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-12">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -316,7 +323,24 @@ export default function CompetitivePage() {
             <PdfGrid pdfs={featuredPdfs} />
           </motion.div>
         </section>
-      )}
+      ) : isLoading ? (
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-12">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h2 className="text-2xl font-bold flex items-center gap-2">
+                <Sparkles className="w-6 h-6 text-indigo-600" />
+                Featured Notes
+              </h2>
+              <p className="text-muted-foreground text-sm mt-1">Popular notes you might find useful</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+            {[0, 1, 2, 3].map((i) => (
+              <PdfCardSkeleton key={i} />
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       {/* CTA */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">

@@ -18,6 +18,8 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { ClassCard } from '@/components/pdf/class-card'
 import { PdfGrid } from '@/components/pdf/pdf-grid'
+import { PdfCardSkeleton } from '@/components/pdf/pdf-card-skeleton'
+import { Breadcrumbs } from '@/components/layout/breadcrumbs'
 
 interface ClassData {
   id: string
@@ -89,6 +91,11 @@ export default function SchoolPage() {
 
   return (
     <div className="space-y-0 pb-8">
+      {/* Breadcrumbs */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
+        <Breadcrumbs items={[{ label: 'School Notes' }]} />
+      </div>
+
       {/* Hero Section */}
       <section className="relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-emerald-50 via-teal-50 to-green-50 dark:from-emerald-950/30 dark:via-teal-950/20 dark:to-green-950/30" />
@@ -279,10 +286,39 @@ export default function SchoolPage() {
 
       {/* Loading State */}
       {isLoading && (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-center py-20">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600" />
-          </div>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-12 space-y-12">
+          <section>
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-2xl font-bold flex items-center gap-2">
+                  <Sparkles className="w-6 h-6 text-emerald-600" />
+                  Featured Notes
+                </h2>
+                <p className="text-muted-foreground text-sm mt-1">Handpicked by our educators</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+              {[0, 1, 2, 3].map((i) => (
+                <PdfCardSkeleton key={i} />
+              ))}
+            </div>
+          </section>
+          <section>
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-2xl font-bold flex items-center gap-2">
+                  <TrendingUp className="w-6 h-6 text-emerald-600" />
+                  Most Popular
+                </h2>
+                <p className="text-muted-foreground text-sm mt-1">Top picks by students</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+              {[0, 1, 2, 3].map((i) => (
+                <PdfCardSkeleton key={i} />
+              ))}
+            </div>
+          </section>
         </div>
       )}
 

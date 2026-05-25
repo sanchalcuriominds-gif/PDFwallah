@@ -32,6 +32,7 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { SearchBar } from '@/components/pdf/search-bar'
 import { PdfGrid } from '@/components/pdf/pdf-grid'
+import { PdfCardSkeleton } from '@/components/pdf/pdf-card-skeleton'
 import { ClassCard } from '@/components/pdf/class-card'
 
 interface ClassData {
@@ -403,10 +404,39 @@ export default function HomePage() {
 
       {/* Loading State */}
       {isLoading && (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-center py-20">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600" />
-          </div>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-12 space-y-12">
+          <section>
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-2xl font-bold flex items-center gap-2">
+                  <Sparkles className="w-6 h-6 text-emerald-600" />
+                  Featured Notes
+                </h2>
+                <p className="text-muted-foreground text-sm mt-1">Handpicked by our educators</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+              {[0, 1, 2, 3].map((i) => (
+                <PdfCardSkeleton key={i} />
+              ))}
+            </div>
+          </section>
+          <section>
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-2xl font-bold flex items-center gap-2">
+                  <TrendingUp className="w-6 h-6 text-emerald-600" />
+                  Most Popular
+                </h2>
+                <p className="text-muted-foreground text-sm mt-1">Top picks by students</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+              {[0, 1, 2, 3].map((i) => (
+                <PdfCardSkeleton key={i} />
+              ))}
+            </div>
+          </section>
         </div>
       )}
 

@@ -29,6 +29,8 @@ import {
 } from '@/components/ui/select'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { PdfGrid } from '@/components/pdf/pdf-grid'
+import { PdfCardSkeleton } from '@/components/pdf/pdf-card-skeleton'
+import { Breadcrumbs } from '@/components/layout/breadcrumbs'
 
 interface ClassData {
   id: string
@@ -273,6 +275,9 @@ function SearchContent() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+      {/* Breadcrumbs */}
+      <Breadcrumbs items={[{ label: 'Search' }]} />
+
       {/* Search Header */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -402,8 +407,10 @@ function SearchContent() {
         {/* Results */}
         <div className="flex-1 min-w-0">
           {isLoading ? (
-            <div className="flex items-center justify-center py-20">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+              {[0, 1, 2, 3].map((i) => (
+                <PdfCardSkeleton key={i} />
+              ))}
             </div>
           ) : pdfs.length > 0 ? (
             <PdfGrid pdfs={pdfs} />
@@ -434,8 +441,13 @@ export default function SearchPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex items-center justify-center py-20">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600" />
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+          <Breadcrumbs items={[{ label: 'Search' }]} />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+            {[0, 1, 2, 3].map((i) => (
+              <PdfCardSkeleton key={i} />
+            ))}
+          </div>
         </div>
       }
     >

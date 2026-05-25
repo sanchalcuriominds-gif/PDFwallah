@@ -8,6 +8,8 @@ import { BookOpen, FileText, ChevronRight, ArrowLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { PdfGrid } from '@/components/pdf/pdf-grid'
+import { PdfCardSkeleton } from '@/components/pdf/pdf-card-skeleton'
+import { Breadcrumbs } from '@/components/layout/breadcrumbs'
 
 interface TopicData {
   id: string
@@ -89,8 +91,33 @@ export default function ChapterPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600" />
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+        <div className="flex items-center gap-2">
+          <div className="h-4 w-10 bg-muted rounded animate-pulse" />
+          <div className="h-4 w-4 bg-muted rounded-full animate-pulse" />
+          <div className="h-4 w-16 bg-muted rounded animate-pulse" />
+          <div className="h-4 w-4 bg-muted rounded-full animate-pulse" />
+          <div className="h-4 w-14 bg-muted rounded animate-pulse" />
+          <div className="h-4 w-4 bg-muted rounded-full animate-pulse" />
+          <div className="h-4 w-20 bg-muted rounded animate-pulse" />
+        </div>
+        <div className="h-8 w-48 bg-muted rounded animate-pulse" />
+        <div className="h-4 w-64 bg-muted rounded animate-pulse" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-6">
+          {[0, 1, 2, 3].map((i) => (
+            <Card key={i}>
+              <CardContent className="p-4 space-y-2">
+                <div className="h-4 w-3/4 bg-muted rounded animate-pulse" />
+                <div className="h-3 w-1/2 bg-muted rounded animate-pulse" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mt-8">
+          {[0, 1, 2, 3].map((i) => (
+            <PdfCardSkeleton key={i} />
+          ))}
+        </div>
       </div>
     )
   }
@@ -110,20 +137,13 @@ export default function ChapterPage() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-      {/* Breadcrumb */}
-      <nav className="flex items-center gap-2 text-sm text-muted-foreground flex-wrap">
-        <Link href="/" className="hover:text-emerald-600 transition-colors">Home</Link>
-        <ChevronRight className="w-4 h-4" />
-        <Link href={`/class/${classSlug}`} className="hover:text-emerald-600 transition-colors">
-          {chapterInfo.subject.class.name}
-        </Link>
-        <ChevronRight className="w-4 h-4" />
-        <Link href={`/class/${classSlug}/subject/${subjectSlug}`} className="hover:text-emerald-600 transition-colors">
-          {chapterInfo.subject.name}
-        </Link>
-        <ChevronRight className="w-4 h-4" />
-        <span className="text-foreground font-medium">{chapterInfo.name}</span>
-      </nav>
+      <Breadcrumbs
+        items={[
+          { label: chapterInfo.subject.class.name, href: `/class/${classSlug}` },
+          { label: chapterInfo.subject.name, href: `/class/${classSlug}/subject/${subjectSlug}` },
+          { label: chapterInfo.name },
+        ]}
+      />
 
       {/* Header */}
       <motion.div

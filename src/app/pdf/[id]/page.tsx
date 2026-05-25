@@ -11,7 +11,6 @@ import {
   BookOpen,
   Calendar,
   Layers,
-  ChevronRight,
   ShoppingBag,
   Shield,
   MessageCircle,
@@ -23,7 +22,9 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion'
 import { PdfGrid } from '@/components/pdf/pdf-grid'
+import { PdfDetailSkeleton } from '@/components/pdf/pdf-detail-skeleton'
 import { PaymentModal } from '@/components/pdf/payment-modal'
+import { Breadcrumbs } from '@/components/layout/breadcrumbs'
 
 function getNoteTypeColor(name: string): string {
   const lower = name.toLowerCase()
@@ -129,11 +130,7 @@ export default function PdfDetailPage() {
   }, [id])
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600" />
-      </div>
-    )
+    return <PdfDetailSkeleton />
   }
 
   if (!pdf) {
@@ -167,20 +164,13 @@ export default function PdfDetailPage() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-      {/* Breadcrumb */}
-      <nav className="flex items-center gap-2 text-sm text-muted-foreground flex-wrap">
-        <Link href="/" className="hover:text-emerald-600 transition-colors">Home</Link>
-        <ChevronRight className="w-4 h-4" />
-        <Link href={`/class/${pdf.class.slug}`} className="hover:text-emerald-600 transition-colors">
-          {pdf.class.name}
-        </Link>
-        <ChevronRight className="w-4 h-4" />
-        <Link href={`/class/${pdf.class.slug}/subject/${pdf.subject.slug}`} className="hover:text-emerald-600 transition-colors">
-          {pdf.subject.name}
-        </Link>
-        <ChevronRight className="w-4 h-4" />
-        <span className="text-foreground font-medium line-clamp-1">{pdf.title}</span>
-      </nav>
+      <Breadcrumbs
+        items={[
+          { label: pdf.class.name, href: `/class/${pdf.class.slug}` },
+          { label: pdf.subject.name, href: `/class/${pdf.class.slug}/subject/${pdf.subject.slug}` },
+          { label: pdf.title },
+        ]}
+      />
 
       {/* Main Content */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

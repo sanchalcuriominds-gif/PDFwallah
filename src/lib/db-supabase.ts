@@ -942,6 +942,40 @@ export const adminSessionDb = {
   },
 };
 
+// ========== NoteRequest ==========
+export const noteRequestDb = {
+  create: async (options: { data: any }) => {
+    const admin = getAdmin();
+    const data = { id: generateId(), ...options.data, createdAt: new Date().toISOString() };
+    const { data: result, error } = await admin.from('NoteRequest').insert(data).select().single();
+    if (error) throw new Error(error.message);
+    return result;
+  },
+
+  findMany: async (options?: { where?: any; orderBy?: any; limit?: number }) => {
+    const admin = getAdmin();
+    let query = admin.from('NoteRequest').select('*');
+
+    if (options?.where) {
+      query = applyWhere(query, options.where);
+    }
+
+    if (options?.orderBy) {
+      query = applyOrderBy(query, options.orderBy);
+    } else {
+      query = query.order('createdAt', { ascending: false });
+    }
+
+    if (options?.limit) {
+      query = query.limit(options.limit);
+    }
+
+    const { data, error } = await query;
+    if (error) throw new Error(error.message);
+    return data || [];
+  },
+};
+
 // Export a combined db object that mimics Prisma's API shape
 export const db = {
   class: classDb,
@@ -952,6 +986,7 @@ export const db = {
   pdf: pdfDb,
   order: orderDb,
   adminSession: adminSessionDb,
+  noteRequest: noteRequestDb,
 };
 
 // Default export for convenience

@@ -4,10 +4,12 @@ import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
-import { BookOpen, FileText, ChevronRight, ArrowLeft } from 'lucide-react'
+import { BookOpen, FileText, ArrowLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { PdfGrid } from '@/components/pdf/pdf-grid'
+import { PdfCardSkeleton } from '@/components/pdf/pdf-card-skeleton'
+import { Breadcrumbs } from '@/components/layout/breadcrumbs'
 
 interface SubjectData {
   id: string
@@ -89,8 +91,30 @@ export default function ClassPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600" />
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+        <div className="flex items-center gap-2">
+          <div className="h-4 w-10 bg-muted rounded animate-pulse" />
+          <div className="h-4 w-4 bg-muted rounded-full animate-pulse" />
+          <div className="h-4 w-16 bg-muted rounded animate-pulse" />
+        </div>
+        <div className="h-8 w-32 bg-muted rounded animate-pulse" />
+        <div className="h-4 w-48 bg-muted rounded animate-pulse" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-6">
+          {[0, 1, 2, 3, 4, 5].map((i) => (
+            <Card key={i} className="overflow-hidden">
+              <div className="h-24 bg-muted animate-pulse" />
+              <CardContent className="p-4 space-y-2">
+                <div className="h-4 w-20 bg-muted rounded animate-pulse" />
+                <div className="h-3 w-28 bg-muted rounded animate-pulse" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mt-8">
+          {[0, 1, 2, 3].map((i) => (
+            <PdfCardSkeleton key={i} />
+          ))}
+        </div>
       </div>
     )
   }
@@ -110,12 +134,12 @@ export default function ClassPage() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-      {/* Breadcrumb */}
-      <nav className="flex items-center gap-2 text-sm text-muted-foreground">
-        <Link href="/" className="hover:text-emerald-600 transition-colors">Home</Link>
-        <ChevronRight className="w-4 h-4" />
-        <span className="text-foreground font-medium">{classData.name}</span>
-      </nav>
+      <Breadcrumbs
+        items={[
+          { label: 'School Notes', href: '/school' },
+          { label: classData.name },
+        ]}
+      />
 
       {/* Header */}
       <motion.div

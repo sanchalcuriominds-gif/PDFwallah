@@ -4,9 +4,11 @@ import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
-import { FileText, ChevronRight, ArrowLeft } from 'lucide-react'
+import { FileText, ArrowLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { PdfGrid } from '@/components/pdf/pdf-grid'
+import { PdfCardSkeleton } from '@/components/pdf/pdf-card-skeleton'
+import { Breadcrumbs } from '@/components/layout/breadcrumbs'
 
 interface PdfData {
   id: string
@@ -80,8 +82,25 @@ export default function TopicPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600" />
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+        <div className="flex items-center gap-2">
+          <div className="h-4 w-10 bg-muted rounded animate-pulse" />
+          <div className="h-4 w-4 bg-muted rounded-full animate-pulse" />
+          <div className="h-4 w-16 bg-muted rounded animate-pulse" />
+          <div className="h-4 w-4 bg-muted rounded-full animate-pulse" />
+          <div className="h-4 w-14 bg-muted rounded animate-pulse" />
+          <div className="h-4 w-4 bg-muted rounded-full animate-pulse" />
+          <div className="h-4 w-20 bg-muted rounded animate-pulse" />
+          <div className="h-4 w-4 bg-muted rounded-full animate-pulse" />
+          <div className="h-4 w-16 bg-muted rounded animate-pulse" />
+        </div>
+        <div className="h-8 w-40 bg-muted rounded animate-pulse" />
+        <div className="h-4 w-64 bg-muted rounded animate-pulse" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mt-8">
+          {[0, 1, 2, 3].map((i) => (
+            <PdfCardSkeleton key={i} />
+          ))}
+        </div>
       </div>
     )
   }
@@ -101,24 +120,14 @@ export default function TopicPage() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-      {/* Breadcrumb */}
-      <nav className="flex items-center gap-2 text-sm text-muted-foreground flex-wrap">
-        <Link href="/" className="hover:text-emerald-600 transition-colors">Home</Link>
-        <ChevronRight className="w-4 h-4" />
-        <Link href={`/class/${classSlug}`} className="hover:text-emerald-600 transition-colors">
-          {topicInfo.chapter.subject.class.name}
-        </Link>
-        <ChevronRight className="w-4 h-4" />
-        <Link href={`/class/${classSlug}/subject/${subjectSlug}`} className="hover:text-emerald-600 transition-colors">
-          {topicInfo.chapter.subject.name}
-        </Link>
-        <ChevronRight className="w-4 h-4" />
-        <Link href={`/class/${classSlug}/subject/${subjectSlug}/chapter/${chapterSlug}`} className="hover:text-emerald-600 transition-colors">
-          {topicInfo.chapter.name}
-        </Link>
-        <ChevronRight className="w-4 h-4" />
-        <span className="text-foreground font-medium">{topicInfo.name}</span>
-      </nav>
+      <Breadcrumbs
+        items={[
+          { label: topicInfo.chapter.subject.class.name, href: `/class/${classSlug}` },
+          { label: topicInfo.chapter.subject.name, href: `/class/${classSlug}/subject/${subjectSlug}` },
+          { label: topicInfo.chapter.name, href: `/class/${classSlug}/subject/${subjectSlug}/chapter/${chapterSlug}` },
+          { label: topicInfo.name },
+        ]}
+      />
 
       {/* Header */}
       <motion.div
