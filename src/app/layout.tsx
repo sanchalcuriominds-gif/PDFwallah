@@ -5,6 +5,8 @@ import { Toaster } from "@/components/ui/toaster";
 import { ThemeProvider } from "@/components/layout/theme-provider";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
+import { AnnouncementBanner } from "@/components/layout/announcement-banner";
+import { BackToTop } from "@/components/layout/back-to-top";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -53,10 +55,12 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <div className="min-h-screen flex flex-col">
+            <AnnouncementBanner />
             <Header />
             <main className="flex-1">{children}</main>
             <Footer />
           </div>
+          <BackToTop />
           <Toaster />
         </ThemeProvider>
       </body>

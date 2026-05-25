@@ -53,6 +53,9 @@ export function Footer() {
               <Link href="/search" className="text-sm text-muted-foreground hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">
                 Search Notes
               </Link>
+              <Link href="/request" className="text-sm text-muted-foreground hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">
+                Request Notes
+              </Link>
             </div>
           </div>
 

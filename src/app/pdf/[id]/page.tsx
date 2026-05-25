@@ -14,25 +14,40 @@ import {
   ChevronRight,
   ShoppingBag,
   Shield,
+  MessageCircle,
+  CheckCircle,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
+import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion'
 import { PdfGrid } from '@/components/pdf/pdf-grid'
 import { PaymentModal } from '@/components/pdf/payment-modal'
+
+function getNoteTypeColor(name: string): string {
+  const lower = name.toLowerCase()
+  if (lower === 'pyq') return 'bg-orange-500 text-white'
+  if (lower === 'handwritten') return 'bg-blue-500 text-white'
+  if (lower === 'ncert') return 'bg-purple-500 text-white'
+  if (lower === 'test paper') return 'bg-amber-500 text-white'
+  if (lower === 'formula sheet') return 'bg-cyan-500 text-white'
+  return 'bg-slate-500 text-white'
+}
 
 interface PdfDetail {
   id: string
   title: string
   description: string
   price: number
+  mrp?: number | null
   pageCount: number
   salesCount: number
   downloadCount: number
   featured: boolean
   thumbnailPath: string | null
   createdAt: string
+  noteType?: { name: string; slug: string } | null
   class: { name: string; slug: string }
   subject: { name: string; slug: string }
   chapter: { name: string; slug: string }
@@ -44,16 +59,41 @@ interface RelatedPdf {
   title: string
   description: string
   price: number
+  mrp?: number | null
   pageCount: number
   salesCount: number
   downloadCount: number
   featured: boolean
   thumbnailPath: string | null
+  noteType?: { name: string; slug: string } | null
   class: { name: string; slug: string }
   subject: { name: string; slug: string }
   chapter: { name: string; slug: string }
   topic: { name: string; slug: string }
 }
+
+const faqItems = [
+  {
+    question: 'How will I receive my notes?',
+    answer: 'Instantly after payment. You\'ll get a download link right away.',
+  },
+  {
+    question: 'Is the payment secure?',
+    answer: 'Yes, 100% secure. We use Razorpay for all transactions.',
+  },
+  {
+    question: 'Can I download multiple times?',
+    answer: 'Yes, up to 3 times within 24 hours of purchase.',
+  },
+  {
+    question: 'What if I lose my download link?',
+    answer: 'Use \'Recover Download Links\' in the footer to get your link back.',
+  },
+  {
+    question: 'Is there a refund policy?',
+    answer: 'Due to the digital nature of the product, refunds are not available.',
+  },
+]
 
 export default function PdfDetailPage() {
   const params = useParams()
@@ -116,6 +156,14 @@ export default function PdfDetailPage() {
     month: 'long',
     day: 'numeric',
   })
+
+  const displayMrp = pdf.mrp && pdf.mrp > pdf.price ? pdf.mrp : pdf.price * 2
+  const discountPercent = Math.round(((displayMrp - pdf.price) / displayMrp) * 100)
+
+  const handleWhatsAppShare = () => {
+    const text = encodeURIComponent(`Check out "${pdf.title}" on Vedant Academy! ${window.location.href}`)
+    window.open(`https://wa.me/?text=${text}`, '_blank')
+  }
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
@@ -190,6 +238,11 @@ export default function PdfDetailPage() {
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold">{pdf.title}</h1>
             <div className="flex items-center gap-2 mt-2 flex-wrap">
+              {pdf.noteType && (
+                <span className={`inline-flex items-center rounded-md px-2.5 py-1 text-xs font-semibold ${getNoteTypeColor(pdf.noteType.name)}`}>
+                  {pdf.noteType.name}
+                </span>
+              )}
               <Badge variant="outline" className="text-xs">
                 {pdf.class.name}
               </Badge>
@@ -223,15 +276,36 @@ export default function PdfDetailPage() {
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <p className="text-sm text-muted-foreground">Price</p>
-                  <p className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">
-                    ₹{pdf.price}
-                  </p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="text-lg text-muted-foreground line-through">₹{displayMrp}</span>
+                    <span className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">₹{pdf.price}</span>
+                    <Badge className="bg-orange-600 text-white font-bold text-xs">
+                      {discountPercent}% OFF
+                    </Badge>
+                  </div>
                 </div>
                 <div className="text-right">
                   <p className="text-sm text-muted-foreground">Instant Download</p>
                   <p className="text-sm text-muted-foreground">PDF Format</p>
                 </div>
               </div>
+
+              {/* Trust Badges */}
+              <div className="flex items-center justify-center gap-4 sm:gap-6 mb-4">
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <Shield className="w-4 h-4 text-emerald-600" />
+                  <span>Secure Payment</span>
+                </div>
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <Download className="w-4 h-4 text-emerald-600" />
+                  <span>Instant Download</span>
+                </div>
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <CheckCircle className="w-4 h-4 text-emerald-600" />
+                  <span>Quality Content</span>
+                </div>
+              </div>
+
               <Button
                 onClick={() => setIsPaymentOpen(true)}
                 className="w-full bg-emerald-600 hover:bg-emerald-700 text-white h-12 text-base gap-2"
@@ -239,6 +313,16 @@ export default function PdfDetailPage() {
                 <ShoppingBag className="w-5 h-5" />
                 Buy Now - ₹{pdf.price}
               </Button>
+
+              <Button
+                onClick={handleWhatsAppShare}
+                variant="outline"
+                className="w-full mt-3 border-green-500 text-green-600 hover:bg-green-50 dark:hover:bg-green-950 h-11 text-base gap-2"
+              >
+                <MessageCircle className="w-5 h-5" />
+                Share on WhatsApp
+              </Button>
+
               <div className="flex items-center justify-center gap-1 mt-3 text-xs text-muted-foreground">
                 <Shield className="w-3 h-3" />
                 Secure payment via Razorpay
@@ -262,6 +346,25 @@ export default function PdfDetailPage() {
               </Card>
             ))}
           </div>
+
+          {/* FAQ Section */}
+          <Card>
+            <CardContent className="p-6">
+              <h2 className="text-lg font-semibold mb-4">Frequently Asked Questions</h2>
+              <Accordion type="single" collapsible className="w-full">
+                {faqItems.map((faq, idx) => (
+                  <AccordionItem key={idx} value={`faq-${idx}`}>
+                    <AccordionTrigger className="text-sm font-medium text-left">
+                      {faq.question}
+                    </AccordionTrigger>
+                    <AccordionContent className="text-sm text-muted-foreground">
+                      {faq.answer}
+                    </AccordionContent>
+                  </AccordionItem>
+                ))}
+              </Accordion>
+            </CardContent>
+          </Card>
         </motion.div>
       </div>
 

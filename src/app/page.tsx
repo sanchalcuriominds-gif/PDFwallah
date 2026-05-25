@@ -79,6 +79,15 @@ const quickCategories = [
 
 const quickPills = ['Class 9', 'Class 10', 'Class 11', 'Class 12', 'JEE', 'NEET', 'CUET']
 
+const testimonials = [
+  { name: "Priya", class: "Class 10", quote: "These notes helped me score 95% in my board exams!", rating: 5 },
+  { name: "Arjun", class: "Class 12", quote: "Best handwritten notes I've found online. Worth every rupee!", rating: 5 },
+  { name: "Rohit", class: "JEE Aspirant", quote: "The PYQs section is gold. Cleared JEE with these!", rating: 5 },
+  { name: "Sneha", class: "NEET Aspirant", quote: "Simple, clean, and to the point. No unnecessary stuff.", rating: 5 },
+  { name: "Vikram", class: "Class 11", quote: "Finally found a site that doesn't look like it's from 2005!", rating: 4 },
+  { name: "Ananya", class: "Class 9", quote: "Affordable and quality content. Highly recommend!", rating: 5 },
+]
+
 export default function HomePage() {
   const [classes, setClasses] = useState<ClassData[]>([])
   const [featuredPdfs, setFeaturedPdfs] = useState<PdfData[]>([])
@@ -452,6 +461,45 @@ export default function HomePage() {
                       </div>
                       <h3 className="font-semibold">{item.title}</h3>
                       <p className="text-sm text-muted-foreground leading-relaxed">{item.description}</p>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              ))}
+            </div>
+          </motion.div>
+        </section>
+      )}
+
+      {/* Testimonials */}
+      {!isLoading && (
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-12">
+          <motion.div {...fadeInUp}>
+            <div className="text-center mb-8">
+              <h2 className="text-2xl font-bold">What Students Say</h2>
+              <p className="text-muted-foreground text-sm mt-1">Trusted by students across India</p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {testimonials.map((testimonial, idx) => (
+                <motion.div
+                  key={testimonial.name}
+                  whileHover={{ y: -4 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <Card className="h-full hover:shadow-md transition-shadow">
+                    <CardContent className="p-5 space-y-3">
+                      <div className="flex items-center gap-1">
+                        {Array.from({ length: 5 }).map((_, i) => (
+                          <Star
+                            key={i}
+                            className={`w-4 h-4 ${i < testimonial.rating ? 'text-amber-400 fill-amber-400' : 'text-muted-foreground/30'}`}
+                          />
+                        ))}
+                      </div>
+                      <p className="text-sm text-muted-foreground leading-relaxed">&ldquo;{testimonial.quote}&rdquo;</p>
+                      <div>
+                        <p className="font-semibold text-sm">{testimonial.name}</p>
+                        <p className="text-xs text-muted-foreground">{testimonial.class}</p>
+                      </div>
                     </CardContent>
                   </Card>
                 </motion.div>

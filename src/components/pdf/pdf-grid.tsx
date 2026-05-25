@@ -9,11 +9,13 @@ interface PdfGridProps {
     title: string
     description: string
     price: number
+    mrp?: number | null
     pageCount: number
     salesCount: number
     downloadCount: number
     featured: boolean
     thumbnailPath: string | null
+    noteType?: { name: string; slug: string } | null
     class: { name: string; slug: string }
     subject: { name: string; slug: string }
     chapter: { name: string; slug: string }

@@ -18,6 +18,7 @@ import {
   Loader2,
   AlertCircle,
   CheckCircle2,
+  Tag,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -87,10 +88,17 @@ interface TopicData {
   chapterId: string
 }
 
+interface NoteTypeData {
+  id: string
+  name: string
+  slug: string
+}
+
 interface AdminPdf {
   id: string
   title: string
   price: number
+  mrp: number | null
   pageCount: number
   salesCount: number
   featured: boolean
@@ -237,7 +245,7 @@ export default function AdminPage() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-4 mb-6">
+        <TabsList className="grid w-full grid-cols-5 mb-6">
           <TabsTrigger value="dashboard" className="gap-2">
             <LayoutDashboard className="w-4 h-4 hidden sm:block" />
             <span className="hidden sm:inline">Dashboard</span>
@@ -258,6 +266,11 @@ export default function AdminPage() {
             <span className="hidden sm:inline">Orders</span>
             <span className="sm:hidden">Orders</span>
           </TabsTrigger>
+          <TabsTrigger value="note-types" className="gap-2">
+            <Tag className="w-4 h-4 hidden sm:block" />
+            <span className="hidden sm:inline">Note Types</span>
+            <span className="sm:hidden">Types</span>
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="dashboard">
@@ -271,6 +284,9 @@ export default function AdminPage() {
         </TabsContent>
         <TabsContent value="orders">
           <OrdersTab />
+        </TabsContent>
+        <TabsContent value="note-types">
+          <NoteTypesTab />
         </TabsContent>
       </Tabs>
     </div>
@@ -423,16 +439,23 @@ function UploadTab({ onUploaded }: { onUploaded: () => void }) {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [price, setPrice] = useState('')
+  const [mrp, setMrp] = useState('')
   const [pageCount, setPageCount] = useState('')
   const [classId, setClassId] = useState('')
   const [subjectId, setSubjectId] = useState('')
   const [chapterId, setChapterId] = useState('')
   const [topicId, setTopicId] = useState('')
+  const [noteTypeId, setNoteTypeId] = useState('')
+  const [noteTypes, setNoteTypes] = useState<NoteTypeData[]>([])
   const [featured, setFeatured] = useState(false)
   const [published, setPublished] = useState(true)
 
   useEffect(() => {
     fetch('/api/classes').then((r) => r.json()).then(setClasses).catch(console.error)
+  }, [])
+
+  useEffect(() => {
+    fetch('/api/note-types').then((r) => r.json()).then(setNoteTypes).catch(console.error)
   }, [])
 
   useEffect(() => {
@@ -483,11 +506,13 @@ function UploadTab({ onUploaded }: { onUploaded: () => void }) {
           title,
           description,
           price: parseFloat(price),
+          mrp: mrp ? parseFloat(mrp) : null,
           pageCount: parseInt(pageCount) || 0,
           classId,
           subjectId,
           chapterId,
           topicId,
+          noteTypeId: noteTypeId || null,
           featured,
           published,
           pdfPath: `pdfs/${Date.now()}-${title.replace(/\s+/g, '-').toLowerCase()}.pdf`,
@@ -501,7 +526,9 @@ function UploadTab({ onUploaded }: { onUploaded: () => void }) {
         setTitle('')
         setDescription('')
         setPrice('')
+        setMrp('')
         setPageCount('')
+        setNoteTypeId('')
         setFeatured(false)
         setPublished(true)
         onUploaded()
@@ -565,16 +592,28 @@ function UploadTab({ onUploaded }: { onUploaded: () => void }) {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="pageCount">Page Count</Label>
+                <Label htmlFor="mrp">MRP (₹)</Label>
                 <Input
-                  id="pageCount"
+                  id="mrp"
                   type="number"
-                  value={pageCount}
-                  onChange={(e) => setPageCount(e.target.value)}
-                  placeholder="25"
+                  value={mrp}
+                  onChange={(e) => setMrp(e.target.value)}
+                  placeholder="99"
                   min="0"
                 />
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="pageCount">Page Count</Label>
+              <Input
+                id="pageCount"
+                type="number"
+                value={pageCount}
+                onChange={(e) => setPageCount(e.target.value)}
+                placeholder="25"
+                min="0"
+              />
             </div>
 
             <Separator />
@@ -645,6 +684,22 @@ function UploadTab({ onUploaded }: { onUploaded: () => void }) {
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Note Type</Label>
+              <Select value={noteTypeId} onValueChange={setNoteTypeId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select note type" />
+                </SelectTrigger>
+                <SelectContent>
+                  {noteTypes.map((nt) => (
+                    <SelectItem key={nt.id} value={nt.id}>
+                      {nt.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <Separator />
@@ -790,6 +845,7 @@ function ManagePdfsTab() {
                     <TableHead>Class</TableHead>
                     <TableHead>Subject</TableHead>
                     <TableHead>Price</TableHead>
+                    <TableHead>MRP</TableHead>
                     <TableHead>Sales</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Actions</TableHead>
@@ -804,6 +860,7 @@ function ManagePdfsTab() {
                       <TableCell>{pdf.class.name}</TableCell>
                       <TableCell>{pdf.subject.name}</TableCell>
                       <TableCell>₹{pdf.price}</TableCell>
+                      <TableCell>{pdf.mrp ? `₹${pdf.mrp}` : '-'}</TableCell>
                       <TableCell>{pdf.salesCount}</TableCell>
                       <TableCell>
                         <Badge
@@ -850,6 +907,170 @@ function ManagePdfsTab() {
             </div>
           ) : (
             <p className="text-center text-muted-foreground py-8">No PDFs uploaded yet</p>
+          )}
+        </CardContent>
+      </Card>
+    </motion.div>
+  )
+}
+
+// ========== Note Types Tab ==========
+function NoteTypesTab() {
+  const [noteTypes, setNoteTypes] = useState<NoteTypeData[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [newName, setNewName] = useState('')
+  const [isCreating, setIsCreating] = useState(false)
+  const [deleteId, setDeleteId] = useState<string | null>(null)
+  const [error, setError] = useState('')
+
+  const fetchNoteTypes = useCallback(() => {
+    setIsLoading(true)
+    fetch('/api/admin/note-types')
+      .then((r) => r.json())
+      .then(setNoteTypes)
+      .catch(console.error)
+      .finally(() => setIsLoading(false))
+  }, [])
+
+  useEffect(() => {
+    fetchNoteTypes()
+  }, [fetchNoteTypes])
+
+  const handleAdd = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!newName.trim()) return
+
+    setIsCreating(true)
+    setError('')
+    try {
+      const slug = newName.trim().toLowerCase().replace(/\s+/g, '-')
+      const res = await fetch('/api/admin/note-types', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newName.trim(), slug }),
+      })
+      const data = await res.json()
+      if (res.ok) {
+        setNewName('')
+        fetchNoteTypes()
+      } else {
+        setError(data.error || 'Failed to add note type')
+      }
+    } catch {
+      setError('Failed to add note type')
+    } finally {
+      setIsCreating(false)
+    }
+  }
+
+  const handleDelete = async (id: string) => {
+    setDeleteId(id)
+    try {
+      const res = await fetch(`/api/admin/note-types/${id}`, { method: 'DELETE' })
+      if (res.ok) {
+        setNoteTypes((prev) => prev.filter((nt) => nt.id !== id))
+      }
+    } catch (error) {
+      console.error('Error deleting note type:', error)
+    } finally {
+      setDeleteId(null)
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="w-8 h-8 text-emerald-600 animate-spin" />
+      </div>
+    )
+  }
+
+  return (
+    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+      <Card className="max-w-2xl mx-auto">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Tag className="w-5 h-5 text-emerald-600" />
+            Add Note Type
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleAdd} className="flex items-end gap-3">
+            <div className="flex-1 space-y-2">
+              <Label htmlFor="note-type-name">Name</Label>
+              <Input
+                id="note-type-name"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                placeholder="e.g., Handwritten, Printed"
+              />
+            </div>
+            <Button
+              type="submit"
+              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+              disabled={isCreating || !newName.trim()}
+            >
+              {isCreating ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                'Add Note Type'
+              )}
+            </Button>
+          </form>
+          {error && (
+            <p className="text-sm text-destructive flex items-center gap-1 mt-3">
+              <AlertCircle className="w-4 h-4" />
+              {error}
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="max-w-2xl mx-auto">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Tag className="w-5 h-5 text-emerald-600" />
+            All Note Types ({noteTypes.length})
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {noteTypes.length > 0 ? (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Slug</TableHead>
+                    <TableHead>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {noteTypes.map((nt) => (
+                    <TableRow key={nt.id}>
+                      <TableCell className="font-medium">{nt.name}</TableCell>
+                      <TableCell className="text-muted-foreground">{nt.slug}</TableCell>
+                      <TableCell>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-red-600 hover:text-red-700"
+                          onClick={() => handleDelete(nt.id)}
+                          disabled={deleteId === nt.id}
+                        >
+                          {deleteId === nt.id ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="w-4 h-4" />
+                          )}
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          ) : (
+            <p className="text-center text-muted-foreground py-8">No note types yet</p>
           )}
         </CardContent>
       </Card>

@@ -523,7 +523,7 @@ export const pdfDb = {
     include?: any;
   }) => {
     const admin = getAdmin();
-    let query = admin.from('Pdf').select('*, class: Class(*), subject: Subject(*), chapter: Chapter(*), topic: Topic(*)');
+    let query = admin.from('Pdf').select('*, class: Class(*), subject: Subject(*), chapter: Chapter(*), topic: Topic(*), noteType: NoteType(*)');
 
     // Apply where filters
     if (options?.where) {
@@ -581,6 +581,9 @@ export const pdfDb = {
     if (options.include?.topic || options.include) {
       includes.push('topic: Topic(*)');
     }
+    if (options.include?.noteType || options.include) {
+      includes.push('noteType: NoteType(*)');
+    }
     if (options.include?.orders) {
       includes.push('orders: Order(*)');
     }
@@ -604,7 +607,7 @@ export const pdfDb = {
   create: async (options: { data: any; include?: any }) => {
     const admin = getAdmin();
     const data = { id: generateId(), ...options.data };
-    const { data: result, error } = await admin.from('Pdf').insert(data).select('*, class: Class(*), subject: Subject(*), chapter: Chapter(*), topic: Topic(*)').single();
+    const { data: result, error } = await admin.from('Pdf').insert(data).select('*, class: Class(*), subject: Subject(*), chapter: Chapter(*), topic: Topic(*), noteType: NoteType(*)').single();
     if (error) throw new Error(error.message);
     return result;
   },
@@ -639,7 +642,7 @@ export const pdfDb = {
       .from('Pdf')
       .update({ ...regularData, updatedAt: new Date().toISOString() })
       .eq('id', options.where.id)
-      .select('*, class: Class(*), subject: Subject(*), chapter: Chapter(*), topic: Topic(*)')
+      .select('*, class: Class(*), subject: Subject(*), chapter: Chapter(*), topic: Topic(*), noteType: NoteType(*)')
       .single();
     if (error) throw new Error(error.message);
     return result;
@@ -852,6 +855,69 @@ export const orderDb = {
   },
 };
 
+// ========== NoteType ==========
+export const noteTypeDb = {
+  findMany: async (options?: { where?: any; orderBy?: any }) => {
+    const admin = getAdmin();
+    let query = admin.from('NoteType').select('*');
+
+    if (options?.where) {
+      query = applyWhere(query, options.where);
+    }
+
+    if (options?.orderBy) {
+      query = applyOrderBy(query, options.orderBy);
+    } else {
+      query = query.order('name', { ascending: true });
+    }
+
+    const { data, error } = await query;
+    if (error) throw new Error(error.message);
+    return data || [];
+  },
+
+  findUnique: async (options: { where: { id?: string; slug?: string } }) => {
+    const admin = getAdmin();
+    let query = admin.from('NoteType').select('*');
+
+    if (options.where.id) {
+      query = query.eq('id', options.where.id);
+    } else if (options.where.slug) {
+      query = query.eq('slug', options.where.slug);
+    }
+
+    const { data, error } = await query.single();
+    if (error) return null;
+    return data;
+  },
+
+  create: async (options: { data: any }) => {
+    const admin = getAdmin();
+    const data = { id: generateId(), ...options.data };
+    const { data: result, error } = await admin.from('NoteType').insert(data).select().single();
+    if (error) throw new Error(error.message);
+    return result;
+  },
+
+  update: async (options: { where: { id: string }; data: any }) => {
+    const admin = getAdmin();
+    const { data: result, error } = await admin
+      .from('NoteType')
+      .update({ ...options.data, updatedAt: new Date().toISOString() })
+      .eq('id', options.where.id)
+      .select()
+      .single();
+    if (error) throw new Error(error.message);
+    return result;
+  },
+
+  delete: async (options: { where: { id: string } }) => {
+    const admin = getAdmin();
+    const { error } = await admin.from('NoteType').delete().eq('id', options.where.id);
+    if (error) throw new Error(error.message);
+  },
+};
+
 // ========== AdminSession ==========
 export const adminSessionDb = {
   findUnique: async (options: { where: { token: string } }) => {
@@ -882,6 +948,7 @@ export const db = {
   subject: subjectDb,
   chapter: chapterDb,
   topic: topicDb,
+  noteType: noteTypeDb,
   pdf: pdfDb,
   order: orderDb,
   adminSession: adminSessionDb,
