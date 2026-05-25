@@ -350,7 +350,7 @@ export const chapterDb = {
 
       for (const field of countFields) {
         const fkMap: Record<string, { table: string; fkColumn: string }> = {
-          topics: { table: 'Topic', fkColumn: 'subjectId' }, // Note: Topic.chapterId maps to Chapter
+          topics: { table: 'Topic', fkColumn: 'chapterId' },
           pdfs: { table: 'Pdf', fkColumn: 'chapterId' },
         };
 

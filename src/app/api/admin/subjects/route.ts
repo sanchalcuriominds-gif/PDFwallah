@@ -2,6 +2,34 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { validateAdminSession } from '@/lib/admin-auth';
 
+// GET - List all subjects for admin
+export async function GET(request: NextRequest) {
+  try {
+    const token = request.cookies.get('admin_token')?.value;
+    if (!token || !(await validateAdminSession(token))) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const subjects = await db.subject.findMany({
+      orderBy: { name: 'asc' },
+      include: {
+        class: { select: { name: true } },
+        _count: { select: { chapters: true, pdfs: true } },
+      },
+    });
+
+    const result = subjects.map((s) => ({
+      ...s,
+      className: s.class.name,
+    }));
+
+    return NextResponse.json(result);
+  } catch (error) {
+    console.error('Error fetching subjects:', error);
+    return NextResponse.json({ error: 'Failed to fetch subjects' }, { status: 500 });
+  }
+}
+
 // POST - Create a new subject
 export async function POST(request: NextRequest) {
   try {

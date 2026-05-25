@@ -19,6 +19,10 @@ import {
   AlertCircle,
   CheckCircle2,
   Tag,
+  FolderOpen,
+  Plus,
+  ChevronDown,
+  ChevronRight,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -245,11 +249,16 @@ export default function AdminPage() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-5 mb-6">
+        <TabsList className="grid w-full grid-cols-6 mb-6">
           <TabsTrigger value="dashboard" className="gap-2">
             <LayoutDashboard className="w-4 h-4 hidden sm:block" />
             <span className="hidden sm:inline">Dashboard</span>
             <span className="sm:hidden">Home</span>
+          </TabsTrigger>
+          <TabsTrigger value="categories" className="gap-2">
+            <FolderOpen className="w-4 h-4 hidden sm:block" />
+            <span className="hidden sm:inline">Categories</span>
+            <span className="sm:hidden">Cats</span>
           </TabsTrigger>
           <TabsTrigger value="upload" className="gap-2">
             <Upload className="w-4 h-4 hidden sm:block" />
@@ -276,6 +285,9 @@ export default function AdminPage() {
         <TabsContent value="dashboard">
           <DashboardTab />
         </TabsContent>
+        <TabsContent value="categories">
+          <CategoriesTab />
+        </TabsContent>
         <TabsContent value="upload">
           <UploadTab onUploaded={() => setActiveTab('manage')} />
         </TabsContent>
@@ -290,6 +302,562 @@ export default function AdminPage() {
         </TabsContent>
       </Tabs>
     </div>
+  )
+}
+
+// ========== Categories Tab ==========
+function CategoriesTab() {
+  const [activeSection, setActiveSection] = useState<'class' | 'subject' | 'chapter' | 'topic'>('class')
+
+  // Data lists
+  const [classes, setClasses] = useState<ClassData[]>([])
+  const [subjects, setSubjects] = useState<SubjectData[]>([])
+  const [chapters, setChapters] = useState<ChapterData[]>([])
+  const [topics, setTopics] = useState<TopicData[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+
+  // Form states
+  const [newClassName, setNewClassName] = useState('')
+  const [newSubjectName, setNewSubjectName] = useState('')
+  const [newChapterName, setNewChapterName] = useState('')
+  const [newTopicName, setNewTopicName] = useState('')
+  const [selectedClassId, setSelectedClassId] = useState('')
+  const [selectedSubjectId, setSelectedSubjectId] = useState('')
+  const [selectedChapterId, setSelectedChapterId] = useState('')
+  const [isCreating, setIsCreating] = useState(false)
+  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
+
+  // Extended types for admin view with counts
+  interface ClassWithCount extends ClassData {
+    _count?: { subjects: number; pdfs: number }
+  }
+  interface SubjectWithCount extends SubjectData {
+    className?: string
+    _count?: { chapters: number; pdfs: number }
+  }
+  interface ChapterWithCount extends ChapterData {
+    subjectName?: string
+    _count?: { topics: number; pdfs: number }
+  }
+  interface TopicWithCount extends TopicData {
+    chapterName?: string
+    _count?: { pdfs: number }
+  }
+
+  const [classesWithCount, setClassesWithCount] = useState<ClassWithCount[]>([])
+  const [subjectsWithCount, setSubjectsWithCount] = useState<SubjectWithCount[]>([])
+  const [chaptersWithCount, setChaptersWithCount] = useState<ChapterWithCount[]>([])
+  const [topicsWithCount, setTopicsWithCount] = useState<TopicWithCount[]>([])
+
+  const fetchAllData = useCallback(async () => {
+    setIsLoading(true)
+    try {
+      const [classesRes, subjectsRes, chaptersRes, topicsRes] = await Promise.all([
+        fetch('/api/admin/classes'),
+        fetch('/api/admin/subjects'),
+        fetch('/api/admin/chapters'),
+        fetch('/api/admin/topics'),
+      ])
+      if (classesRes.ok) {
+        const classData = await classesRes.json()
+        setClassesWithCount(classData)
+        setClasses(classData.map((c: ClassWithCount) => ({ id: c.id, name: c.name, slug: c.slug })))
+      }
+      if (subjectsRes.ok) {
+        const subjectData = await subjectsRes.json()
+        setSubjectsWithCount(subjectData)
+        setSubjects(subjectData.map((s: SubjectWithCount) => ({ id: s.id, name: s.name, slug: s.slug, classId: s.classId })))
+      }
+      if (chaptersRes.ok) {
+        const chapterData = await chaptersRes.json()
+        setChaptersWithCount(chapterData)
+        setChapters(chapterData.map((c: ChapterWithCount) => ({ id: c.id, name: c.name, slug: c.slug, subjectId: c.subjectId })))
+      }
+      if (topicsRes.ok) {
+        const topicData = await topicsRes.json()
+        setTopicsWithCount(topicData)
+        setTopics(topicData.map((t: TopicWithCount) => ({ id: t.id, name: t.name, slug: t.slug, chapterId: t.chapterId })))
+      }
+    } catch (err) {
+      console.error('Error fetching categories:', err)
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchAllData()
+  }, [fetchAllData])
+
+  // Also load public subjects/chapters/topics for the dropdowns in forms
+  useEffect(() => {
+    if (selectedClassId) {
+      fetch(`/api/subjects?classId=${selectedClassId}`).then(r => r.json()).then(setSubjects).catch(console.error)
+      setSelectedSubjectId('')
+      setSelectedChapterId('')
+    } else {
+      setSubjects([])
+    }
+  }, [selectedClassId])
+
+  useEffect(() => {
+    if (selectedSubjectId) {
+      fetch(`/api/chapters?subjectId=${selectedSubjectId}`).then(r => r.json()).then(setChapters).catch(console.error)
+      setSelectedChapterId('')
+    } else {
+      setChapters([])
+    }
+  }, [selectedSubjectId])
+
+  useEffect(() => {
+    if (selectedChapterId) {
+      fetch(`/api/topics?chapterId=${selectedChapterId}`).then(r => r.json()).then(setTopics).catch(console.error)
+    } else {
+      setTopics([])
+    }
+  }, [selectedChapterId])
+
+  const showFeedback = (type: 'success' | 'error', message: string) => {
+    setFeedback({ type, message })
+    setTimeout(() => setFeedback(null), 3000)
+  }
+
+  const generateSlug = (name: string) => name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+
+  const handleAddClass = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!newClassName.trim()) return
+    setIsCreating(true)
+    try {
+      const res = await fetch('/api/admin/classes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newClassName.trim(), slug: generateSlug(newClassName), sortOrder: 0 }),
+      })
+      if (res.ok) {
+        const savedName = newClassName.trim()
+        setNewClassName('')
+        showFeedback('success', `Class "${savedName}" added!`)
+        fetchAllData()
+      } else {
+        const data = await res.json()
+        showFeedback('error', data.error || 'Failed to add class')
+      }
+    } catch {
+      showFeedback('error', 'Failed to add class')
+    } finally {
+      setIsCreating(false)
+    }
+  }
+
+  const handleAddSubject = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!newSubjectName.trim() || !selectedClassId) return
+    setIsCreating(true)
+    try {
+      const res = await fetch('/api/admin/subjects', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newSubjectName.trim(), slug: generateSlug(newSubjectName), classId: selectedClassId }),
+      })
+      if (res.ok) {
+        const savedName = newSubjectName.trim()
+        setNewSubjectName('')
+        showFeedback('success', `Subject "${savedName}" added!`)
+        fetchAllData()
+      } else {
+        const data = await res.json()
+        showFeedback('error', data.error || 'Failed to add subject')
+      }
+    } catch {
+      showFeedback('error', 'Failed to add subject')
+    } finally {
+      setIsCreating(false)
+    }
+  }
+
+  const handleAddChapter = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!newChapterName.trim() || !selectedSubjectId) return
+    setIsCreating(true)
+    try {
+      const res = await fetch('/api/admin/chapters', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newChapterName.trim(), slug: generateSlug(newChapterName), subjectId: selectedSubjectId }),
+      })
+      if (res.ok) {
+        const savedName = newChapterName.trim()
+        setNewChapterName('')
+        showFeedback('success', `Chapter "${savedName}" added!`)
+        fetchAllData()
+      } else {
+        const data = await res.json()
+        showFeedback('error', data.error || 'Failed to add chapter')
+      }
+    } catch {
+      showFeedback('error', 'Failed to add chapter')
+    } finally {
+      setIsCreating(false)
+    }
+  }
+
+  const handleAddTopic = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!newTopicName.trim() || !selectedChapterId) return
+    setIsCreating(true)
+    try {
+      const res = await fetch('/api/admin/topics', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newTopicName.trim(), slug: generateSlug(newTopicName), chapterId: selectedChapterId }),
+      })
+      if (res.ok) {
+        const savedName = newTopicName.trim()
+        setNewTopicName('')
+        showFeedback('success', `Topic "${savedName}" added!`)
+        fetchAllData()
+      } else {
+        const data = await res.json()
+        showFeedback('error', data.error || 'Failed to add topic')
+      }
+    } catch {
+      showFeedback('error', 'Failed to add topic')
+    } finally {
+      setIsCreating(false)
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="w-8 h-8 text-emerald-600 animate-spin" />
+      </div>
+    )
+  }
+
+  const sections = [
+    { key: 'class' as const, label: 'Class', icon: '🏫', items: classesWithCount, count: classesWithCount.length },
+    { key: 'subject' as const, label: 'Subject', icon: '📚', items: subjectsWithCount, count: subjectsWithCount.length },
+    { key: 'chapter' as const, label: 'Chapter', icon: '📖', items: chaptersWithCount, count: chaptersWithCount.length },
+    { key: 'topic' as const, label: 'Topic', icon: '📝', items: topicsWithCount, count: topicsWithCount.length },
+  ]
+
+  return (
+    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+      {/* Feedback banner */}
+      {feedback && (
+        <div
+          className={`flex items-center gap-2 p-3 rounded-lg text-sm ${
+            feedback.type === 'success'
+              ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300'
+              : 'bg-red-50 text-red-700 dark:bg-red-900 dark:text-red-300'
+          }`}
+        >
+          {feedback.type === 'success' ? <CheckCircle2 className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
+          {feedback.message}
+        </div>
+      )}
+
+      {/* Quick stats */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {sections.map((s) => (
+          <button
+            key={s.key}
+            onClick={() => setActiveSection(s.key)}
+            className={`p-4 rounded-xl border-2 text-left transition-all ${
+              activeSection === s.key
+                ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/30'
+                : 'border-transparent bg-card hover:border-emerald-200 dark:hover:border-emerald-800'
+            }`}
+          >
+            <div className="text-2xl mb-1">{s.icon}</div>
+            <div className="text-2xl font-bold">{s.count}</div>
+            <div className="text-xs text-muted-foreground">{s.label}{s.count !== 1 ? 's' : ''}</div>
+          </button>
+        ))
+        }
+      </div>
+
+      {/* Add Form */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Plus className="w-5 h-5 text-emerald-600" />
+            Add New {activeSection === 'class' ? 'Class' : activeSection === 'subject' ? 'Subject' : activeSection === 'chapter' ? 'Chapter' : 'Topic'}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form
+            onSubmit={
+              activeSection === 'class' ? handleAddClass
+              : activeSection === 'subject' ? handleAddSubject
+              : activeSection === 'chapter' ? handleAddChapter
+              : handleAddTopic
+            }
+            className="space-y-4"
+          >
+            {/* Parent selectors - shown based on active section */}
+            {activeSection === 'subject' && (
+              <div className="space-y-2">
+                <Label>Select Class *</Label>
+                <Select value={selectedClassId} onValueChange={setSelectedClassId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select class" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {classesWithCount.map((cls) => (
+                      <SelectItem key={cls.id} value={cls.id}>{cls.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {activeSection === 'chapter' && (
+              <>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Select Class *</Label>
+                    <Select value={selectedClassId} onValueChange={setSelectedClassId}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select class" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {classesWithCount.map((cls) => (
+                          <SelectItem key={cls.id} value={cls.id}>{cls.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Select Subject *</Label>
+                    <Select value={selectedSubjectId} onValueChange={setSelectedSubjectId} disabled={!selectedClassId}>
+                      <SelectTrigger>
+                        <SelectValue placeholder={selectedClassId ? 'Select subject' : 'Class first'} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {subjects.map((sub) => (
+                          <SelectItem key={sub.id} value={sub.id}>{sub.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {activeSection === 'topic' && (
+              <>
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label>Select Class *</Label>
+                    <Select value={selectedClassId} onValueChange={setSelectedClassId}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select class" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {classesWithCount.map((cls) => (
+                          <SelectItem key={cls.id} value={cls.id}>{cls.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Select Subject *</Label>
+                    <Select value={selectedSubjectId} onValueChange={setSelectedSubjectId} disabled={!selectedClassId}>
+                      <SelectTrigger>
+                        <SelectValue placeholder={selectedClassId ? 'Select subject' : 'Class first'} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {subjects.map((sub) => (
+                          <SelectItem key={sub.id} value={sub.id}>{sub.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Select Chapter *</Label>
+                    <Select value={selectedChapterId} onValueChange={setSelectedChapterId} disabled={!selectedSubjectId}>
+                      <SelectTrigger>
+                        <SelectValue placeholder={selectedSubjectId ? 'Select chapter' : 'Subject first'} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {chapters.map((ch) => (
+                          <SelectItem key={ch.id} value={ch.id}>{ch.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* Name input */}
+            <div className="flex items-end gap-3">
+              <div className="flex-1 space-y-2">
+                <Label htmlFor="cat-name">
+                  {activeSection === 'class' ? 'Class' : activeSection === 'subject' ? 'Subject' : activeSection === 'chapter' ? 'Chapter' : 'Topic'} Name *
+                </Label>
+                <Input
+                  id="cat-name"
+                  value={
+                    activeSection === 'class' ? newClassName
+                    : activeSection === 'subject' ? newSubjectName
+                    : activeSection === 'chapter' ? newChapterName
+                    : newTopicName
+                  }
+                  onChange={(e) => {
+                    if (activeSection === 'class') setNewClassName(e.target.value)
+                    else if (activeSection === 'subject') setNewSubjectName(e.target.value)
+                    else if (activeSection === 'chapter') setNewChapterName(e.target.value)
+                    else setNewTopicName(e.target.value)
+                  }}
+                  placeholder={
+                    activeSection === 'class' ? 'e.g., Class 10'
+                    : activeSection === 'subject' ? 'e.g., Mathematics'
+                    : activeSection === 'chapter' ? 'e.g., Light'
+                    : 'e.g., Reflection'
+                  }
+                />
+              </div>
+              <Button
+                type="submit"
+                className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                disabled={
+                  isCreating ||
+                  (activeSection === 'class' ? !newClassName.trim() :
+                   activeSection === 'subject' ? (!newSubjectName.trim() || !selectedClassId) :
+                   activeSection === 'chapter' ? (!newChapterName.trim() || !selectedSubjectId) :
+                   (!newTopicName.trim() || !selectedChapterId))
+                }
+              >
+                {isCreating ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add {activeSection === 'class' ? 'Class' : activeSection === 'subject' ? 'Subject' : activeSection === 'chapter' ? 'Chapter' : 'Topic'}
+                  </>
+                )}
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+
+      {/* Existing items list */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <FolderOpen className="w-5 h-5 text-emerald-600" />
+            All {activeSection === 'class' ? 'Classes' : activeSection === 'subject' ? 'Subjects' : activeSection === 'chapter' ? 'Chapters' : 'Topics'}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {activeSection === 'class' && (
+            classesWithCount.length > 0 ? (
+              <div className="space-y-2">
+                {classesWithCount.map((cls) => (
+                  <div key={cls.id} className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted/50 transition-colors">
+                    <div>
+                      <p className="font-medium">{cls.name}</p>
+                      <p className="text-xs text-muted-foreground">slug: {cls.slug}</p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <Badge variant="secondary" className="text-xs">
+                        {cls._count?.subjects || 0} subjects
+                      </Badge>
+                      <Badge variant="secondary" className="text-xs">
+                        {cls._count?.pdfs || 0} PDFs
+                      </Badge>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-center text-muted-foreground py-8">No classes yet. Add your first class above!</p>
+            )
+          )}
+
+          {activeSection === 'subject' && (
+            subjectsWithCount.length > 0 ? (
+              <div className="space-y-2">
+                {subjectsWithCount.map((sub) => (
+                  <div key={sub.id} className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted/50 transition-colors">
+                    <div>
+                      <p className="font-medium">{sub.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        Class: {sub.className || sub.classId} | slug: {sub.slug}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <Badge variant="secondary" className="text-xs">
+                        {sub._count?.chapters || 0} chapters
+                      </Badge>
+                      <Badge variant="secondary" className="text-xs">
+                        {sub._count?.pdfs || 0} PDFs
+                      </Badge>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-center text-muted-foreground py-8">No subjects yet. Add your first subject above!</p>
+            )
+          )}
+
+          {activeSection === 'chapter' && (
+            chaptersWithCount.length > 0 ? (
+              <div className="space-y-2">
+                {chaptersWithCount.map((ch) => (
+                  <div key={ch.id} className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted/50 transition-colors">
+                    <div>
+                      <p className="font-medium">{ch.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        Subject: {ch.subjectName || ch.subjectId} | slug: {ch.slug}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <Badge variant="secondary" className="text-xs">
+                        {ch._count?.topics || 0} topics
+                      </Badge>
+                      <Badge variant="secondary" className="text-xs">
+                        {ch._count?.pdfs || 0} PDFs
+                      </Badge>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-center text-muted-foreground py-8">No chapters yet. Add your first chapter above!</p>
+            )
+          )}
+
+          {activeSection === 'topic' && (
+            topicsWithCount.length > 0 ? (
+              <div className="space-y-2">
+                {topicsWithCount.map((tp) => (
+                  <div key={tp.id} className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted/50 transition-colors">
+                    <div>
+                      <p className="font-medium">{tp.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        Chapter: {tp.chapterName || tp.chapterId} | slug: {tp.slug}
+                      </p>
+                    </div>
+                    <Badge variant="secondary" className="text-xs">
+                      {tp._count?.pdfs || 0} PDFs
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-center text-muted-foreground py-8">No topics yet. Add your first topic above!</p>
+            )
+          )}
+        </CardContent>
+      </Card>
+    </motion.div>
   )
 }
 
