@@ -69,6 +69,7 @@ interface ClassData {
   id: string
   name: string
   slug: string
+  type?: 'school' | 'competitive'
 }
 
 interface SubjectData {
@@ -318,6 +319,7 @@ function CategoriesTab() {
 
   // Form states
   const [newClassName, setNewClassName] = useState('')
+  const [newClassType, setNewClassType] = useState<'school' | 'competitive'>('school')
   const [newSubjectName, setNewSubjectName] = useState('')
   const [newChapterName, setNewChapterName] = useState('')
   const [newTopicName, setNewTopicName] = useState('')
@@ -432,11 +434,12 @@ function CategoriesTab() {
       const res = await fetch('/api/admin/classes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: newClassName.trim(), slug: generateSlug(newClassName), sortOrder: 0 }),
+        body: JSON.stringify({ name: newClassName.trim(), slug: generateSlug(newClassName), sortOrder: 0, type: newClassType }),
       })
       if (res.ok) {
         const savedName = newClassName.trim()
         setNewClassName('')
+        setNewClassType('school')
         showFeedback('success', `Class "${savedName}" added!`)
         fetchAllData()
       } else {
@@ -693,6 +696,22 @@ function CategoriesTab() {
               </>
             )}
 
+            {/* Type selector for class */}
+            {activeSection === 'class' && (
+              <div className="space-y-2">
+                <Label>Type *</Label>
+                <Select value={newClassType} onValueChange={(v) => setNewClassType(v as 'school' | 'competitive')}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="school">🏫 School (Class 9, 10, 11, 12)</SelectItem>
+                    <SelectItem value="competitive">🏆 Competitive (JEE, NEET, CUET, etc.)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
             {/* Name input */}
             <div className="flex items-end gap-3">
               <div className="flex-1 space-y-2">
@@ -770,6 +789,9 @@ function CategoriesTab() {
                       </Badge>
                       <Badge variant="secondary" className="text-xs">
                         {cls._count?.pdfs || 0} PDFs
+                      </Badge>
+                      <Badge variant={cls.type === 'competitive' ? 'default' : 'secondary'} className="text-xs">
+                        {cls.type === 'competitive' ? '🏆 Competitive' : '🏫 School'}
                       </Badge>
                     </div>
                   </div>

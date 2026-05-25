@@ -39,6 +39,7 @@ interface ClassData {
   id: string
   name: string
   slug: string
+  type?: string
   _count: { subjects: number; pdfs: number }
 }
 
@@ -91,6 +92,7 @@ const testimonials = [
 
 export default function HomePage() {
   const [classes, setClasses] = useState<ClassData[]>([])
+  const [competitiveClasses, setCompetitiveClasses] = useState<ClassData[]>([])
   const [featuredPdfs, setFeaturedPdfs] = useState<PdfData[]>([])
   const [popularPdfs, setPopularPdfs] = useState<PdfData[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -101,17 +103,20 @@ export default function HomePage() {
         // Seed database if empty
         await fetch('/api/seed', { method: 'POST' }).catch(() => {})
 
-        const [classesRes, featuredRes, popularRes] = await Promise.all([
-          fetch('/api/classes'),
+        const [classesRes, competitiveRes, featuredRes, popularRes] = await Promise.all([
+          fetch('/api/classes?type=school'),
+          fetch('/api/classes?type=competitive'),
           fetch('/api/pdfs?featured=true&limit=4'),
           fetch('/api/pdfs?sort=popular&limit=4'),
         ])
 
         const classesData = await classesRes.json()
+        const competitiveData = await competitiveRes.json()
         const featuredData = await featuredRes.json()
         const popularData = await popularRes.json()
 
         setClasses(classesData)
+        setCompetitiveClasses(competitiveData)
         setFeaturedPdfs(featuredData.pdfs || [])
         setPopularPdfs(popularData.pdfs || [])
       } catch (error) {
@@ -298,19 +303,25 @@ export default function HomePage() {
               </div>
               <CardContent className="p-4 sm:p-6">
                 <div className="grid grid-cols-2 gap-3">
-                  {competitiveExams.map((exam) => (
-                    <Link key={exam.name} href="/competitive">
-                      <div className={`flex items-center gap-3 p-3 rounded-xl ${exam.lightBg} hover:opacity-80 transition-opacity group`}>
-                        <div className={`flex items-center justify-center w-10 h-10 rounded-lg bg-gradient-to-br ${exam.bgFrom} ${exam.bgTo} text-white flex-shrink-0`}>
-                          <exam.icon className="w-5 h-5" />
+                  {competitiveExams.map((exam) => {
+                    const matchedClass = competitiveClasses.find(
+                      (cls) => cls.name.toLowerCase().includes(exam.name.toLowerCase())
+                    )
+                    const href = matchedClass ? `/class/${matchedClass.slug}` : '/competitive'
+                    return (
+                      <Link key={exam.name} href={href}>
+                        <div className={`flex items-center gap-3 p-3 rounded-xl ${exam.lightBg} hover:opacity-80 transition-opacity group`}>
+                          <div className={`flex items-center justify-center w-10 h-10 rounded-lg bg-gradient-to-br ${exam.bgFrom} ${exam.bgTo} text-white flex-shrink-0`}>
+                            <exam.icon className="w-5 h-5" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className={`font-medium text-sm ${exam.textColor}`}>{exam.name}</p>
+                            <p className="text-xs text-muted-foreground">{exam.subtitle}</p>
+                          </div>
                         </div>
-                        <div className="min-w-0">
-                          <p className={`font-medium text-sm ${exam.textColor}`}>{exam.name}</p>
-                          <p className="text-xs text-muted-foreground">{exam.subtitle}</p>
-                        </div>
-                      </div>
-                    </Link>
-                  ))}
+                      </Link>
+                    )
+                  })}
                 </div>
                 <Link href="/competitive" className="block mt-4">
                   <Button variant="ghost" className="w-full gap-2 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40">

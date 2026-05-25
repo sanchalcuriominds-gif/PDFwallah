@@ -11,6 +11,7 @@ export async function GET(request: NextRequest) {
     const topicId = searchParams.get('topicId');
     const search = searchParams.get('search');
     const featured = searchParams.get('featured');
+    const classType = searchParams.get('type');
     const sort = searchParams.get('sort') || 'newest';
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '20');
@@ -22,6 +23,23 @@ export async function GET(request: NextRequest) {
     if (chapterId) where.chapterId = chapterId;
     if (topicId) where.topicId = topicId;
     if (featured === 'true') where.featured = true;
+    // Handle class type filter: fetch matching class IDs first
+    let classIds: string[] | null = null;
+    if (classType) {
+      const matchingClasses = await db.class.findMany({
+        where: { type: classType },
+      });
+      classIds = matchingClasses.map((c: any) => c.id);
+      if (classIds.length === 0) {
+        // No classes of this type, return empty result
+        return NextResponse.json({
+          pdfs: [],
+          pagination: { page, limit, total: 0, totalPages: 0 },
+        });
+      }
+      where.classId = { in: classIds };
+    }
+
     if (search) {
       where.OR = [
         { title: { contains: search } },

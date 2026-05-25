@@ -8,19 +8,216 @@ export async function seedDatabase() {
     return { message: 'Database already seeded', skipped: true };
   }
 
-  // Create Classes
+  // Create School Classes
   const class9 = await db.class.create({
-    data: { name: 'Class 9', slug: 'class-9', sortOrder: 1 }
+    data: { name: 'Class 9', slug: 'class-9', type: 'school', sortOrder: 1 }
   });
   const class10 = await db.class.create({
-    data: { name: 'Class 10', slug: 'class-10', sortOrder: 2 }
+    data: { name: 'Class 10', slug: 'class-10', type: 'school', sortOrder: 2 }
   });
   const class11 = await db.class.create({
-    data: { name: 'Class 11', slug: 'class-11', sortOrder: 3 }
+    data: { name: 'Class 11', slug: 'class-11', type: 'school', sortOrder: 3 }
   });
   const class12 = await db.class.create({
-    data: { name: 'Class 12', slug: 'class-12', sortOrder: 4 }
+    data: { name: 'Class 12', slug: 'class-12', type: 'school', sortOrder: 4 }
   });
+
+  // Create Competitive Exam Classes
+  const jee = await db.class.create({
+    data: { name: 'JEE', slug: 'jee', type: 'competitive', sortOrder: 10 }
+  });
+  const neet = await db.class.create({
+    data: { name: 'NEET', slug: 'neet', type: 'competitive', sortOrder: 11 }
+  });
+  const cuet = await db.class.create({
+    data: { name: 'CUET', slug: 'cuet', type: 'competitive', sortOrder: 12 }
+  });
+  const reet = await db.class.create({
+    data: { name: 'REET', slug: 'reet', type: 'competitive', sortOrder: 13 }
+  });
+  const ssc = await db.class.create({
+    data: { name: 'SSC', slug: 'ssc', type: 'competitive', sortOrder: 14 }
+  });
+  const railway = await db.class.create({
+    data: { name: 'Railway', slug: 'railway', type: 'competitive', sortOrder: 15 }
+  });
+
+  // Create Subjects for JEE
+  const jeePhysics = await db.subject.create({
+    data: { name: 'Physics', slug: 'physics', classId: jee.id }
+  });
+  const jeeChemistry = await db.subject.create({
+    data: { name: 'Chemistry', slug: 'chemistry', classId: jee.id }
+  });
+  const jeeMaths = await db.subject.create({
+    data: { name: 'Mathematics', slug: 'mathematics', classId: jee.id }
+  });
+
+  // Create Subjects for NEET
+  const neetPhysics = await db.subject.create({
+    data: { name: 'Physics', slug: 'physics', classId: neet.id }
+  });
+  const neetChemistry = await db.subject.create({
+    data: { name: 'Chemistry', slug: 'chemistry', classId: neet.id }
+  });
+  const neetBiology = await db.subject.create({
+    data: { name: 'Biology', slug: 'biology', classId: neet.id }
+  });
+
+  // Create Chapters for JEE Physics
+  const jeeMechanics = await db.chapter.create({
+    data: { name: 'Mechanics', slug: 'mechanics', subjectId: jeePhysics.id }
+  });
+  const jeeThermo = await db.chapter.create({
+    data: { name: 'Thermodynamics', slug: 'thermodynamics', subjectId: jeePhysics.id }
+  });
+  const jeeElectro = await db.chapter.create({
+    data: { name: 'Electrostatics', slug: 'electrostatics', subjectId: jeePhysics.id }
+  });
+
+  // Create Chapters for JEE Chemistry
+  const jeeOrganic = await db.chapter.create({
+    data: { name: 'Organic Chemistry', slug: 'organic-chemistry', subjectId: jeeChemistry.id }
+  });
+  const jeeInorganic = await db.chapter.create({
+    data: { name: 'Inorganic Chemistry', slug: 'inorganic-chemistry', subjectId: jeeChemistry.id }
+  });
+
+  // Create Chapters for JEE Maths
+  const jeeCalculus = await db.chapter.create({
+    data: { name: 'Calculus', slug: 'calculus', subjectId: jeeMaths.id }
+  });
+  const jeeAlgebra = await db.chapter.create({
+    data: { name: 'Algebra', slug: 'algebra', subjectId: jeeMaths.id }
+  });
+
+  // Create Chapters for NEET Biology
+  const neetBotany = await db.chapter.create({
+    data: { name: 'Botany', slug: 'botany', subjectId: neetBiology.id }
+  });
+  const neetZoology = await db.chapter.create({
+    data: { name: 'Zoology', slug: 'zoology', subjectId: neetBiology.id }
+  });
+
+  // Create Topics for JEE chapters
+  const jeeMechanicsNotes = await db.topic.create({
+    data: { name: 'Handwritten Notes', slug: 'handwritten-notes', chapterId: jeeMechanics.id }
+  });
+  const jeeMechanicsPyq = await db.topic.create({
+    data: { name: 'Previous Year Questions', slug: 'pyq', chapterId: jeeMechanics.id }
+  });
+  const jeeThermoNotes = await db.topic.create({
+    data: { name: 'Handwritten Notes', slug: 'handwritten-notes', chapterId: jeeThermo.id }
+  });
+  const jeeCalculusNotes = await db.topic.create({
+    data: { name: 'Handwritten Notes', slug: 'handwritten-notes', chapterId: jeeCalculus.id }
+  });
+  const jeeOrganicNotes = await db.topic.create({
+    data: { name: 'Handwritten Notes', slug: 'handwritten-notes', chapterId: jeeOrganic.id }
+  });
+
+  // Create Topics for NEET chapters
+  const neetBotanyNotes = await db.topic.create({
+    data: { name: 'Handwritten Notes', slug: 'handwritten-notes', chapterId: neetBotany.id }
+  });
+  const neetZoologyNotes = await db.topic.create({
+    data: { name: 'Handwritten Notes', slug: 'handwritten-notes', chapterId: neetZoology.id }
+  });
+
+  // Create competitive exam PDFs
+  const competitivePdfs = [
+    {
+      title: 'JEE Mechanics - Complete Notes',
+      description: 'Comprehensive handwritten notes covering all topics in Mechanics for JEE Main & Advanced. Includes Newton\'s Laws, Work-Energy, Rotational Motion, and Gravitation with solved examples.',
+      price: 99,
+      pdfPath: 'pdfs/jee-mechanics-notes.pdf',
+      pageCount: 45,
+      featured: true,
+      classId: jee.id,
+      subjectId: jeePhysics.id,
+      chapterId: jeeMechanics.id,
+      topicId: jeeMechanicsNotes.id,
+      salesCount: 120,
+    },
+    {
+      title: 'JEE Mechanics - PYQ Last 15 Years',
+      description: 'Previous year questions from JEE Main & Advanced for Mechanics chapter. Detailed solutions with shortcut tricks and multiple approaches.',
+      price: 69,
+      pdfPath: 'pdfs/jee-mechanics-pyq.pdf',
+      pageCount: 35,
+      featured: true,
+      classId: jee.id,
+      subjectId: jeePhysics.id,
+      chapterId: jeeMechanics.id,
+      topicId: jeeMechanicsPyq.id,
+      salesCount: 85,
+    },
+    {
+      title: 'JEE Thermodynamics - Handwritten Notes',
+      description: 'Complete handwritten notes on Thermodynamics for JEE preparation. Covers laws of thermodynamics, heat transfer, and kinetic theory of gases.',
+      price: 79,
+      pdfPath: 'pdfs/jee-thermo-notes.pdf',
+      pageCount: 30,
+      featured: false,
+      classId: jee.id,
+      subjectId: jeePhysics.id,
+      chapterId: jeeThermo.id,
+      topicId: jeeThermoNotes.id,
+      salesCount: 55,
+    },
+    {
+      title: 'JEE Calculus - Master Notes',
+      description: 'In-depth notes covering Differential and Integral Calculus for JEE. Includes limits, continuity, differentiation, integration, and differential equations.',
+      price: 89,
+      pdfPath: 'pdfs/jee-calculus-notes.pdf',
+      pageCount: 50,
+      featured: true,
+      classId: jee.id,
+      subjectId: jeeMaths.id,
+      chapterId: jeeCalculus.id,
+      topicId: jeeCalculusNotes.id,
+      salesCount: 95,
+    },
+    {
+      title: 'JEE Organic Chemistry - Complete Guide',
+      description: 'Comprehensive guide to Organic Chemistry for JEE. Covers reaction mechanisms, named reactions, and stereochemistry with practice problems.',
+      price: 85,
+      pdfPath: 'pdfs/jee-organic-notes.pdf',
+      pageCount: 40,
+      featured: false,
+      classId: jee.id,
+      subjectId: jeeChemistry.id,
+      chapterId: jeeOrganic.id,
+      topicId: jeeOrganicNotes.id,
+      salesCount: 72,
+    },
+    {
+      title: 'NEET Biology - Botany Notes',
+      description: 'Complete botany notes for NEET preparation. Covers cell biology, plant physiology, ecology, and genetics with diagrams and mnemonics.',
+      price: 79,
+      pdfPath: 'pdfs/neet-botany-notes.pdf',
+      pageCount: 55,
+      featured: true,
+      classId: neet.id,
+      subjectId: neetBiology.id,
+      chapterId: neetBotany.id,
+      topicId: neetBotanyNotes.id,
+      salesCount: 150,
+    },
+    {
+      title: 'NEET Biology - Zoology Notes',
+      description: 'Comprehensive zoology notes for NEET. Human physiology, animal kingdom, and evolutionary biology with NCERT-based content.',
+      price: 79,
+      pdfPath: 'pdfs/neet-zoology-notes.pdf',
+      pageCount: 48,
+      featured: true,
+      classId: neet.id,
+      subjectId: neetBiology.id,
+      chapterId: neetZoology.id,
+      topicId: neetZoologyNotes.id,
+      salesCount: 130,
+    },
+  ];
 
   // Create Subjects for Class 10
   const science10 = await db.subject.create({
@@ -271,5 +468,15 @@ export async function seedDatabase() {
     await db.pdf.create({ data: pdf });
   }
 
-  return { message: 'Database seeded successfully', classes: 4, subjects: 11, chapters: 12, pdfs: samplePdfs.length };
+  for (const pdf of competitivePdfs) {
+    await db.pdf.create({ data: pdf });
+  }
+
+  return {
+    message: 'Database seeded successfully',
+    classes: 10,
+    subjects: 17,
+    chapters: 21,
+    pdfs: samplePdfs.length + competitivePdfs.length,
+  };
 }

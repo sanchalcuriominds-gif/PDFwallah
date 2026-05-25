@@ -16,6 +16,8 @@ import {
   FileText,
   Clock,
   Lock,
+  BookOpen,
+  CheckCircle2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -24,6 +26,14 @@ import { Input } from '@/components/ui/input'
 import { PdfGrid } from '@/components/pdf/pdf-grid'
 import { PdfCardSkeleton } from '@/components/pdf/pdf-card-skeleton'
 import { Breadcrumbs } from '@/components/layout/breadcrumbs'
+
+interface CompetitiveClass {
+  id: string
+  name: string
+  slug: string
+  type?: string
+  _count: { subjects: number; pdfs: number }
+}
 
 interface PdfData {
   id: string
@@ -52,7 +62,6 @@ const examCategories = [
     lightBg: 'bg-orange-50 dark:bg-orange-950/30',
     textColor: 'text-orange-600 dark:text-orange-400',
     borderColor: 'border-orange-200 dark:border-orange-800',
-    status: 'coming_soon' as const,
   },
   {
     name: 'NEET',
@@ -64,7 +73,6 @@ const examCategories = [
     lightBg: 'bg-red-50 dark:bg-red-950/30',
     textColor: 'text-red-600 dark:text-red-400',
     borderColor: 'border-red-200 dark:border-red-800',
-    status: 'coming_soon' as const,
   },
   {
     name: 'CUET',
@@ -76,7 +84,6 @@ const examCategories = [
     lightBg: 'bg-blue-50 dark:bg-blue-950/30',
     textColor: 'text-blue-600 dark:text-blue-400',
     borderColor: 'border-blue-200 dark:border-blue-800',
-    status: 'coming_soon' as const,
   },
   {
     name: 'REET',
@@ -88,7 +95,6 @@ const examCategories = [
     lightBg: 'bg-purple-50 dark:bg-purple-950/30',
     textColor: 'text-purple-600 dark:text-purple-400',
     borderColor: 'border-purple-200 dark:border-purple-800',
-    status: 'coming_soon' as const,
   },
   {
     name: 'SSC',
@@ -100,7 +106,6 @@ const examCategories = [
     lightBg: 'bg-amber-50 dark:bg-amber-950/30',
     textColor: 'text-amber-600 dark:text-amber-400',
     borderColor: 'border-amber-200 dark:border-amber-800',
-    status: 'coming_soon' as const,
   },
   {
     name: 'Railway',
@@ -112,7 +117,6 @@ const examCategories = [
     lightBg: 'bg-teal-50 dark:bg-teal-950/30',
     textColor: 'text-teal-600 dark:text-teal-400',
     borderColor: 'border-teal-200 dark:border-teal-800',
-    status: 'coming_soon' as const,
   },
   {
     name: 'Rajasthan Exams',
@@ -124,29 +128,84 @@ const examCategories = [
     lightBg: 'bg-pink-50 dark:bg-pink-950/30',
     textColor: 'text-pink-600 dark:text-pink-400',
     borderColor: 'border-pink-200 dark:border-pink-800',
-    status: 'coming_soon' as const,
   },
 ]
 
+const classGradients: Record<string, string> = {
+  'jee': 'from-orange-400 to-amber-500',
+  'neet': 'from-red-400 to-rose-500',
+  'cuet': 'from-blue-400 to-indigo-500',
+  'reet': 'from-purple-400 to-violet-500',
+  'ssc': 'from-amber-400 to-yellow-500',
+  'railway': 'from-teal-400 to-cyan-500',
+  'rajasthan-exams': 'from-pink-400 to-rose-500',
+}
+
+const classIcons: Record<string, string> = {
+  'jee': 'JEE',
+  'neet': 'NEET',
+  'cuet': 'CUET',
+  'reet': 'REET',
+  'ssc': 'SSC',
+  'railway': 'RRB',
+  'rajasthan-exams': 'RJ',
+}
+
 export default function CompetitivePage() {
   const [searchQuery, setSearchQuery] = useState('')
+  const [competitiveClasses, setCompetitiveClasses] = useState<CompetitiveClass[]>([])
   const [featuredPdfs, setFeaturedPdfs] = useState<PdfData[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
     async function fetchData() {
       try {
-        const res = await fetch('/api/pdfs?featured=true&limit=4')
-        const data = await res.json()
-        setFeaturedPdfs(data.pdfs || [])
+        const [classesRes, featuredRes] = await Promise.all([
+          fetch('/api/classes?type=competitive'),
+          fetch('/api/pdfs?featured=true&limit=4&type=competitive'),
+        ])
+
+        const classesData = await classesRes.json()
+        const featuredData = await featuredRes.json()
+
+        setCompetitiveClasses(Array.isArray(classesData) ? classesData : [])
+        setFeaturedPdfs(featuredData.pdfs || [])
       } catch (error) {
         console.error('Error fetching data:', error)
+        // Fallback: try fetching featured PDFs without type filter
+        try {
+          const fallbackRes = await fetch('/api/pdfs?featured=true&limit=4')
+          const fallbackData = await fallbackRes.json()
+          setFeaturedPdfs(fallbackData.pdfs || [])
+        } catch {
+          // Silently fail
+        }
       } finally {
         setIsLoading(false)
       }
     }
     fetchData()
   }, [])
+
+  // Build a lookup map: exam name → competitive class
+  const classByName = new Map<string, CompetitiveClass>()
+  for (const cls of competitiveClasses) {
+    classByName.set(cls.name.toLowerCase(), cls)
+  }
+
+  // For each exam category, determine if it's active (matching class exists in DB)
+  const enrichedCategories = examCategories.map((cat) => {
+    const matchingClass = classByName.get(cat.name.toLowerCase())
+    return {
+      ...cat,
+      status: matchingClass ? ('active' as const) : ('coming_soon' as const),
+      slug: matchingClass?.slug || null,
+      subjectsCount: matchingClass?._count.subjects || 0,
+      pdfsCount: matchingClass?._count.pdfs || 0,
+    }
+  })
+
+  const hasActiveClasses = competitiveClasses.length > 0
 
   const handleSearch = () => {
     if (searchQuery.trim()) {
@@ -226,41 +285,111 @@ export default function CompetitivePage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4, delay: 0.3 }}
             >
-              {['JEE', 'NEET', 'CUET', 'REET', 'SSC', 'Railway'].map((pill) => (
-                <button
-                  key={pill}
-                  onClick={() => setSearchQuery(pill)}
-                  className="px-3 py-1.5 text-sm rounded-full bg-white/50 dark:bg-white/10 border border-border/50 hover:bg-indigo-50 hover:text-indigo-700 dark:hover:bg-indigo-900 dark:hover:text-indigo-300 transition-colors cursor-pointer"
-                >
-                  {pill}
-                </button>
-              ))}
+              {['JEE', 'NEET', 'CUET', 'REET', 'SSC', 'Railway'].map((pill) => {
+                const matchingClass = classByName.get(pill.toLowerCase())
+                return (
+                  <Link
+                    key={pill}
+                    href={matchingClass ? `/class/${matchingClass.slug}` : `/search?q=${encodeURIComponent(pill)}`}
+                  >
+                    <button
+                      className="px-3 py-1.5 text-sm rounded-full bg-white/50 dark:bg-white/10 border border-border/50 hover:bg-indigo-50 hover:text-indigo-700 dark:hover:bg-indigo-900 dark:hover:text-indigo-300 transition-colors cursor-pointer"
+                    >
+                      {pill}
+                    </button>
+                  </Link>
+                )
+              })}
             </motion.div>
           </motion.div>
         </div>
       </section>
 
-      {/* Exam Categories Grid */}
+      {/* Active Competitive Classes Grid */}
+      {hasActiveClasses && (
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+          >
+            <div className="mb-8">
+              <h2 className="text-2xl font-bold flex items-center gap-2">
+                <Trophy className="w-6 h-6 text-indigo-600" />
+                Browse by Exam
+              </h2>
+              <p className="text-muted-foreground text-sm mt-1">Select your target exam and start preparing</p>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
+              {competitiveClasses.map((cls, index) => (
+                <motion.div
+                  key={cls.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3, delay: index * 0.05 }}
+                >
+                  <Link href={`/class/${cls.slug}`}>
+                    <motion.div
+                      whileHover={{ y: -4, scale: 1.02 }}
+                      transition={{ duration: 0.2, ease: 'easeOut' }}
+                    >
+                      <Card className="overflow-hidden group cursor-pointer border-border/50 hover:border-indigo-200 dark:hover:border-indigo-800 transition-colors">
+                        <div className={`h-32 bg-gradient-to-br ${classGradients[cls.slug] || 'from-indigo-400 to-purple-500'} flex items-center justify-center relative`}>
+                          <span className="text-3xl font-bold text-white/90">{classIcons[cls.slug] || cls.name.substring(0, 3).toUpperCase()}</span>
+                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors" />
+                          <div className="absolute top-2 right-2">
+                            <Badge className="bg-white/20 text-white border-0 backdrop-blur-sm text-xs">
+                              <CheckCircle2 className="w-3 h-3 mr-1" />
+                              Active
+                            </Badge>
+                          </div>
+                        </div>
+                        <CardContent className="p-4 space-y-2">
+                          <h3 className="font-semibold text-base group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                            {cls.name}
+                          </h3>
+                          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                            <span className="flex items-center gap-1">
+                              <BookOpen className="w-3 h-3" />
+                              {cls._count.subjects} {cls._count.subjects === 1 ? 'Subject' : 'Subjects'}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <FileText className="w-3 h-3" />
+                              {cls._count.pdfs} {cls._count.pdfs === 1 ? 'Note' : 'Notes'}
+                            </span>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  </Link>
+                </motion.div>
+              ))}
+            </div>
+          </motion.div>
+        </section>
+      )}
+
+      {/* Exam Categories Grid (with DB-aware status) */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
+          transition={{ duration: 0.5, delay: 0.1 }}
         >
           <div className="mb-8">
-            <h2 className="text-2xl font-bold">Browse by Exam</h2>
-            <p className="text-muted-foreground text-sm mt-1">Select your target exam and start preparing</p>
+            <h2 className="text-2xl font-bold">
+              {hasActiveClasses ? 'All Exam Categories' : 'Browse by Exam'}
+            </h2>
+            <p className="text-muted-foreground text-sm mt-1">
+              {hasActiveClasses
+                ? 'Active exams link to study material — more coming soon!'
+                : 'Select your target exam and start preparing'}
+            </p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-            {examCategories.map((exam, index) => (
-              <motion.div
-                key={exam.name}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3, delay: index * 0.05 }}
-                whileHover={{ y: -4 }}
-              >
-                <Card className={`h-full overflow-hidden hover:border-emerald-200 dark:hover:border-emerald-800 transition-all ${exam.borderColor}`}>
+            {enrichedCategories.map((exam, index) => {
+              const cardContent = (
+                <>
                   {/* Header */}
                   <div className={`bg-gradient-to-r ${exam.bgFrom} ${exam.bgTo} p-5 relative overflow-hidden`}>
                     <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/4" />
@@ -277,23 +406,59 @@ export default function CompetitivePage() {
                   <CardContent className="p-5 space-y-4">
                     <p className="text-sm text-muted-foreground leading-relaxed">{exam.description}</p>
                     <div className="flex items-center justify-between">
-                      {exam.status === 'coming_soon' ? (
+                      {exam.status === 'active' ? (
+                        <Badge variant="secondary" className="gap-1 bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+                          <CheckCircle2 className="w-3 h-3" />
+                          {exam.pdfsCount} Notes Available
+                        </Badge>
+                      ) : (
                         <Badge variant="secondary" className="gap-1">
                           <Clock className="w-3 h-3" />
                           Coming Soon
                         </Badge>
-                      ) : (
-                        <Badge variant="secondary" className="gap-1">
-                          <FileText className="w-3 h-3" />
-                          Notes Available
-                        </Badge>
                       )}
-                      <Lock className="w-4 h-4 text-muted-foreground" />
+                      {exam.status === 'active' ? (
+                        <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors" />
+                      ) : (
+                        <Lock className="w-4 h-4 text-muted-foreground" />
+                      )}
                     </div>
                   </CardContent>
-                </Card>
-              </motion.div>
-            ))}
+                </>
+              )
+
+              if (exam.status === 'active' && exam.slug) {
+                return (
+                  <motion.div
+                    key={exam.name}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3, delay: index * 0.05 }}
+                    whileHover={{ y: -4 }}
+                  >
+                    <Link href={`/class/${exam.slug}`} className="block group">
+                      <Card className={`h-full overflow-hidden hover:border-emerald-200 dark:hover:border-emerald-800 transition-all ${exam.borderColor}`}>
+                        {cardContent}
+                      </Card>
+                    </Link>
+                  </motion.div>
+                )
+              }
+
+              return (
+                <motion.div
+                  key={exam.name}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3, delay: index * 0.05 }}
+                  whileHover={{ y: -4 }}
+                >
+                  <Card className={`h-full overflow-hidden opacity-80 ${exam.borderColor}`}>
+                    {cardContent}
+                  </Card>
+                </motion.div>
+              )
+            })}
           </div>
         </motion.div>
       </section>
@@ -312,7 +477,7 @@ export default function CompetitivePage() {
                   <Sparkles className="w-6 h-6 text-indigo-600" />
                   Featured Notes
                 </h2>
-                <p className="text-muted-foreground text-sm mt-1">Popular notes you might find useful</p>
+                <p className="text-muted-foreground text-sm mt-1">Popular competitive exam notes you might find useful</p>
               </div>
               <Link href="/search?featured=true">
                 <Button variant="ghost" className="gap-1 text-indigo-600 dark:text-indigo-400">
@@ -331,7 +496,7 @@ export default function CompetitivePage() {
                 <Sparkles className="w-6 h-6 text-indigo-600" />
                 Featured Notes
               </h2>
-              <p className="text-muted-foreground text-sm mt-1">Popular notes you might find useful</p>
+              <p className="text-muted-foreground text-sm mt-1">Popular competitive exam notes you might find useful</p>
             </div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
@@ -342,35 +507,66 @@ export default function CompetitivePage() {
         </section>
       ) : null}
 
-      {/* CTA */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
-        <motion.div
-          className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-600 to-purple-600 p-8 sm:p-12 text-white"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-        >
-          <div className="absolute inset-0">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/4" />
-            <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/4" />
-          </div>
-          <div className="relative text-center space-y-4 max-w-2xl mx-auto">
-            <h2 className="text-2xl sm:text-3xl font-bold">New Exam Content Coming Soon!</h2>
-            <p className="text-indigo-100">
-              We&apos;re working hard to bring you the best preparation material for JEE, NEET, CUET, REET & more. Stay tuned!
-            </p>
-            <p className="text-sm text-indigo-200">
-              In the meantime, check out our school notes for foundational concepts.
-            </p>
-            <Link href="/school">
-              <Button size="lg" className="bg-white text-indigo-700 hover:bg-indigo-50 gap-2 h-12 px-8">
-                <GraduationCap className="w-5 h-5" />
-                Browse School Notes
-              </Button>
-            </Link>
-          </div>
-        </motion.div>
-      </section>
+      {/* CTA — only show if no competitive classes exist */}
+      {!isLoading && !hasActiveClasses && (
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
+          <motion.div
+            className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-600 to-purple-600 p-8 sm:p-12 text-white"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+          >
+            <div className="absolute inset-0">
+              <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/4" />
+              <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/4" />
+            </div>
+            <div className="relative text-center space-y-4 max-w-2xl mx-auto">
+              <h2 className="text-2xl sm:text-3xl font-bold">New Exam Content Coming Soon!</h2>
+              <p className="text-indigo-100">
+                We&apos;re working hard to bring you the best preparation material for JEE, NEET, CUET, REET & more. Stay tuned!
+              </p>
+              <p className="text-sm text-indigo-200">
+                In the meantime, check out our school notes for foundational concepts.
+              </p>
+              <Link href="/school">
+                <Button size="lg" className="bg-white text-indigo-700 hover:bg-indigo-50 gap-2 h-12 px-8">
+                  <GraduationCap className="w-5 h-5" />
+                  Browse School Notes
+                </Button>
+              </Link>
+            </div>
+          </motion.div>
+        </section>
+      )}
+
+      {/* CTA — show when competitive classes exist (search prompt) */}
+      {!isLoading && hasActiveClasses && (
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
+          <motion.div
+            className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-600 to-purple-600 p-8 sm:p-12 text-white"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+          >
+            <div className="absolute inset-0">
+              <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/4" />
+              <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/4" />
+            </div>
+            <div className="relative text-center space-y-4 max-w-2xl mx-auto">
+              <h2 className="text-2xl sm:text-3xl font-bold">Can&apos;t Find What You Need?</h2>
+              <p className="text-indigo-100">
+                Search through our entire collection of competitive exam notes, PYQs, and study material. We&apos;re constantly adding new content.
+              </p>
+              <Link href="/search">
+                <Button size="lg" className="bg-white text-indigo-700 hover:bg-indigo-50 gap-2 h-12 px-8">
+                  <Search className="w-5 h-5" />
+                  Search All Notes
+                </Button>
+              </Link>
+            </div>
+          </motion.div>
+        </section>
+      )}
     </div>
   )
 }

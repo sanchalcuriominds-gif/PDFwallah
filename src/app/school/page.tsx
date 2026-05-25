@@ -61,7 +61,7 @@ export default function SchoolPage() {
     async function fetchData() {
       try {
         const [classesRes, featuredRes, popularRes] = await Promise.all([
-          fetch('/api/classes'),
+          fetch('/api/classes?type=school'),
           fetch('/api/pdfs?featured=true&limit=4'),
           fetch('/api/pdfs?sort=popular&limit=4'),
         ])

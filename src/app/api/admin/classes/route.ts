@@ -11,14 +11,14 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, slug, sortOrder } = body;
+    const { name, slug, sortOrder, type } = body;
 
     if (!name || !slug) {
       return NextResponse.json({ error: 'Name and slug are required' }, { status: 400 });
     }
 
     const cls = await db.class.create({
-      data: { name, slug, sortOrder: sortOrder || 0 },
+      data: { name, slug, sortOrder: sortOrder || 0, type: type || 'school' },
     });
 
     return NextResponse.json(cls, { status: 201 });
