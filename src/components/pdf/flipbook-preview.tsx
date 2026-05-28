@@ -23,24 +23,35 @@ export function FlipbookPreview({ pdfUrl, title, pageCount: knownPageCount }: Fl
   const [error, setError] = useState<string | null>(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
+  const pageAreaRef = useRef<HTMLDivElement>(null)
   const [containerWidth, setContainerWidth] = useState(600)
+  const [pageAreaHeight, setPageAreaHeight] = useState(500)
+  const [pageAspectRatio, setPageAspectRatio] = useState<number | null>(null) // width / height of first page
 
-  // Measure container width for responsive page rendering
+  // Measure container dimensions for responsive rendering
   useEffect(() => {
-    const measureWidth = () => {
+    const measure = () => {
       if (containerRef.current) {
         setContainerWidth(containerRef.current.offsetWidth)
       }
+      if (pageAreaRef.current) {
+        setPageAreaHeight(pageAreaRef.current.offsetHeight)
+      }
     }
-    measureWidth()
-    window.addEventListener('resize', measureWidth)
-    return () => window.removeEventListener('resize', measureWidth)
+    measure()
+    window.addEventListener('resize', measure)
+    return () => window.removeEventListener('resize', measure)
   }, [])
 
-  // Handle fullscreen
+  // Re-measure when fullscreen changes
   useEffect(() => {
     const handleFullscreenChange = () => {
       setIsFullscreen(!!document.fullscreenElement)
+      // Delayed re-measure after fullscreen transition
+      setTimeout(() => {
+        if (containerRef.current) setContainerWidth(containerRef.current.offsetWidth)
+        if (pageAreaRef.current) setPageAreaHeight(pageAreaRef.current.offsetHeight)
+      }, 100)
     }
     document.addEventListener('fullscreenchange', handleFullscreenChange)
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange)
@@ -60,6 +71,13 @@ export function FlipbookPreview({ pdfUrl, title, pageCount: knownPageCount }: Fl
     setIsLoading(false)
     setError(null)
   }, [])
+
+  // Capture page aspect ratio from the first rendered page
+  const onPageRenderSuccess = useCallback((page: any) => {
+    if (!pageAspectRatio && page?.originalWidth && page?.originalHeight) {
+      setPageAspectRatio(page.originalWidth / page.originalHeight)
+    }
+  }, [pageAspectRatio])
 
   const onDocumentLoadError = useCallback((err: Error) => {
     console.error('PDF load error:', err)
@@ -85,6 +103,10 @@ export function FlipbookPreview({ pdfUrl, title, pageCount: knownPageCount }: Fl
 
   const zoomOut = useCallback(() => {
     setScale(s => Math.max(s - 0.25, 0.5))
+  }, [])
+
+  const resetZoom = useCallback(() => {
+    setScale(1)
   }, [])
 
   // Keyboard navigation
@@ -118,14 +140,44 @@ export function FlipbookPreview({ pdfUrl, title, pageCount: knownPageCount }: Fl
     touchStartRef.current = null
   }, [nextPage, prevPage])
 
-  // Calculate page width based on container and scale
-  const pageWidth = Math.max(containerWidth - 32, 300) * scale
+  // Calculate optimal page dimensions so the full page fits without scrolling
+  // Strategy: Fit by height on desktop, fit by width on mobile
+  const getMaxPageWidth = () => {
+    const availableWidth = containerWidth - 32 // padding
+    const availableHeight = pageAreaHeight - 16 // small padding
+
+    if (availableHeight <= 0 || availableWidth <= 0) return Math.min(availableWidth, 500)
+
+    if (pageAspectRatio) {
+      // We know the page's aspect ratio — use it to fit perfectly
+      const widthFromHeight = availableHeight * pageAspectRatio
+      const widthFromWidth = availableWidth
+
+      // Use whichever is smaller (the page fits both ways)
+      const baseWidth = Math.min(widthFromHeight, widthFromWidth)
+      return Math.max(baseWidth * scale, 200)
+    }
+
+    // Fallback: no aspect ratio yet — on wide screens, limit width
+    // A4 aspect ratio is ~0.707 (width/height), so if height is 600, width ≈ 424
+    const isWide = availableWidth > 600
+    if (isWide) {
+      // Assume A4-ish ratio, fit by height
+      const estimatedWidth = availableHeight * 0.707
+      return Math.max(Math.min(estimatedWidth, availableWidth) * scale, 200)
+    }
+
+    // Narrow screen (mobile) — fit by width
+    return Math.max(availableWidth * scale, 200)
+  }
+
+  const pageWidth = getMaxPageWidth()
 
   return (
     <div
       ref={containerRef}
       className={`flex flex-col bg-muted/30 rounded-lg overflow-hidden ${isFullscreen ? 'fixed inset-0 z-50 bg-black/95' : ''}`}
-      style={!isFullscreen ? { minHeight: '500px' } : undefined}
+      style={!isFullscreen ? { height: '620px' } : undefined}
     >
       {/* Toolbar */}
       <div className="flex items-center justify-between px-3 py-2 bg-background/80 backdrop-blur-sm border-b shrink-0">
@@ -143,10 +195,17 @@ export function FlipbookPreview({ pdfUrl, title, pageCount: knownPageCount }: Fl
           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={zoomOut} title="Zoom Out">
             <ZoomOut className="w-4 h-4" />
           </Button>
-          <span className="text-xs text-muted-foreground w-12 text-center">{Math.round(scale * 100)}%</span>
+          <button
+            className="text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer min-w-[40px] text-center"
+            onClick={resetZoom}
+            title="Reset Zoom"
+          >
+            {Math.round(scale * 100)}%
+          </button>
           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={zoomIn} title="Zoom In">
             <ZoomIn className="w-4 h-4" />
           </Button>
+          <div className="w-px h-4 bg-border mx-1" />
           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={toggleFullscreen} title="Fullscreen">
             {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
           </Button>
@@ -155,6 +214,7 @@ export function FlipbookPreview({ pdfUrl, title, pageCount: knownPageCount }: Fl
 
       {/* PDF Page Display */}
       <div
+        ref={pageAreaRef}
         className="flex-1 flex items-center justify-center overflow-auto select-none"
         onContextMenu={(e) => e.preventDefault()}
         style={{ userSelect: 'none', WebkitUserSelect: 'none' }}
@@ -177,9 +237,9 @@ export function FlipbookPreview({ pdfUrl, title, pageCount: knownPageCount }: Fl
             </Button>
           </div>
         ) : (
-          <div className="relative">
+          <div className="relative" style={{ lineHeight: 0 }}>
             {isLoading && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center z-10 bg-muted/50 rounded-lg min-h-[400px]">
+              <div className="absolute inset-0 flex flex-col items-center justify-center z-10 bg-muted/50 rounded-lg" style={{ minHeight: '400px', minWidth: '300px' }}>
                 <Loader2 className="w-10 h-10 text-emerald-600 animate-spin mb-3" />
                 <p className="text-sm text-muted-foreground">Loading preview...</p>
               </div>
@@ -196,8 +256,9 @@ export function FlipbookPreview({ pdfUrl, title, pageCount: knownPageCount }: Fl
                 width={pageWidth}
                 renderTextLayer={false}
                 renderAnnotationLayer={false}
+                onRenderSuccess={onPageRenderSuccess}
                 loading={
-                  <div className="flex items-center justify-center min-h-[400px] min-w-[300px]">
+                  <div className="flex items-center justify-center" style={{ minHeight: '400px', minWidth: '300px' }}>
                     <Loader2 className="w-8 h-8 text-emerald-600 animate-spin" />
                   </div>
                 }
@@ -220,26 +281,39 @@ export function FlipbookPreview({ pdfUrl, title, pageCount: knownPageCount }: Fl
             <ChevronLeft className="w-5 h-5" />
           </Button>
 
-          {/* Page dots / indicators */}
-          <div className="flex items-center gap-1">
-            {Array.from({ length: Math.min(numPages, 7) }, (_, i) => {
-              const pageNum = i + 1
-              // If more than 7 pages, show first 3, dots, last 3
-              return (
-                <button
-                  key={pageNum}
-                  onClick={() => goToPage(pageNum)}
-                  className={`w-2.5 h-2.5 rounded-full transition-all ${
-                    currentPage === pageNum
-                      ? 'bg-emerald-600 scale-125'
-                      : 'bg-muted-foreground/30 hover:bg-muted-foreground/50'
-                  }`}
-                />
-              )
-            })}
-            {numPages > 7 && (
+          {/* Page indicators */}
+          <div className="flex items-center gap-1.5">
+            {numPages <= 7 ? (
+              // Show all page dots
+              Array.from({ length: numPages }, (_, i) => {
+                const pageNum = i + 1
+                return (
+                  <button
+                    key={pageNum}
+                    onClick={() => goToPage(pageNum)}
+                    className={`w-2.5 h-2.5 rounded-full transition-all ${
+                      currentPage === pageNum
+                        ? 'bg-emerald-600 scale-125'
+                        : 'bg-muted-foreground/30 hover:bg-muted-foreground/50'
+                    }`}
+                  />
+                )
+              })
+            ) : (
+              // Show first 3, ..., last 3
               <>
-                <span className="text-xs text-muted-foreground mx-1">...</span>
+                {[1, 2, 3].map(p => (
+                  <button
+                    key={p}
+                    onClick={() => goToPage(p)}
+                    className={`w-2.5 h-2.5 rounded-full transition-all ${
+                      currentPage === p
+                        ? 'bg-emerald-600 scale-125'
+                        : 'bg-muted-foreground/30 hover:bg-muted-foreground/50'
+                    }`}
+                  />
+                ))}
+                <span className="text-xs text-muted-foreground mx-0.5">...</span>
                 {[numPages - 2, numPages - 1, numPages].map(p => (
                   <button
                     key={p}
@@ -265,13 +339,6 @@ export function FlipbookPreview({ pdfUrl, title, pageCount: knownPageCount }: Fl
             <ChevronRight className="w-5 h-5" />
           </Button>
         </div>
-      )}
-
-      {/* Swipe hint for mobile */}
-      {!error && numPages > 1 && !isFullscreen && (
-        <p className="text-center text-[10px] text-muted-foreground/50 pb-1">
-          Swipe or use arrows to flip pages
-        </p>
       )}
     </div>
   )
