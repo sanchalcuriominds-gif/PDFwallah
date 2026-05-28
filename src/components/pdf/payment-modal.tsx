@@ -119,6 +119,30 @@ export function PaymentModal({ isOpen, onClose, pdf }: PaymentModalProps) {
             theme: {
               color: '#059669', // emerald-600
             },
+            // UPI & payment method configuration — show UPI first for Indian users
+            config: {
+              display: {
+                blocks: {
+                  upi: {
+                    name: 'Pay by UPI',
+                    instruments: [
+                      { method: 'upi' },
+                    ],
+                  },
+                },
+                sequence: ['block.upi', 'block.card', 'block.netbanking', 'block.wallet'],
+                preferences: {
+                  show_default_blocks: true,
+                },
+              },
+            },
+            // Retry settings — allow user to retry if UPI app fails
+            retry: {
+              enabled: true,
+              max_count: 3,
+            },
+            // Timer to auto-close checkout if user doesn't act
+            timeout: 600, // 10 minutes
             handler: function (response: any) {
               resolve({
                 razorpayPaymentId: response.razorpay_payment_id,
@@ -135,7 +159,15 @@ export function PaymentModal({ isOpen, onClose, pdf }: PaymentModalProps) {
 
           const rzp = new window.Razorpay(options)
           rzp.on('payment.failed', function (response: any) {
-            reject(new Error(response.error.description || 'Payment failed'))
+            const desc = response.error.description || 'Payment failed'
+            // Provide more helpful error messages for common issues
+            let userMessage = desc
+            if (desc.includes('website does not match')) {
+              userMessage = 'Payment is being set up. Please try again in a few minutes or use a different payment method (Card/Net Banking).'
+            } else if (desc.includes('payment_method_not_enabled')) {
+              userMessage = 'This payment method is not available. Please try a different payment method.'
+            }
+            reject(new Error(userMessage))
           })
           rzp.open()
         }
