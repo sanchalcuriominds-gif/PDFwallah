@@ -82,7 +82,7 @@ export async function GET(request: NextRequest) {
         totalPages: Math.ceil(total / limit),
       },
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error fetching PDFs:', error);
     return NextResponse.json({ error: 'Failed to fetch PDFs' }, { status: 500 });
   }

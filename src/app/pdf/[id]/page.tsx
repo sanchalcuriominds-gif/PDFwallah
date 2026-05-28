@@ -55,6 +55,7 @@ interface PdfDetail {
   previewFileUrl?: string | null
   fullFileUrl?: string | null
   thumbnailPath: string | null
+  hasFile?: boolean
   createdAt: string
   noteType?: { name: string; slug: string } | null
   class: { name: string; slug: string }
@@ -173,7 +174,7 @@ export default function PdfDetailPage() {
   const displayMrp = pdf.mrp && pdf.mrp > pdf.price ? pdf.mrp : pdf.price * 2
   const discountPercent = Math.round(((displayMrp - pdf.price) / displayMrp) * 100)
 
-  const hasPreview = !!(pdf.previewFileUrl || pdf.fullFileUrl)
+  const hasPreview = !!(pdf.previewFileUrl || pdf.fullFileUrl || pdf.hasFile)
 
   const handleWhatsAppShare = () => {
     const text = encodeURIComponent(`Check out "${pdf.title}" on PDFWallah! ${window.location.href}`)

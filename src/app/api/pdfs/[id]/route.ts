@@ -31,7 +31,7 @@ export async function GET(
     };
 
     return NextResponse.json(safePdf);
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error fetching PDF:', error);
     return NextResponse.json({ error: 'Failed to fetch PDF' }, { status: 500 });
   }

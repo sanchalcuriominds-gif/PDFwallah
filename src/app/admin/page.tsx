@@ -1037,6 +1037,8 @@ function UploadTab({ onUploaded }: { onUploaded: () => void }) {
   const [topicId, setTopicId] = useState('')
   const [noteTypeId, setNoteTypeId] = useState('')
   const [noteTypes, setNoteTypes] = useState<NoteTypeData[]>([])
+  const [previewFileUrl, setPreviewFileUrl] = useState('')
+  const [fullFileUrl, setFullFileUrl] = useState('')
   const [featured, setFeatured] = useState(false)
   const [published, setPublished] = useState(true)
 
@@ -1103,9 +1105,10 @@ function UploadTab({ onUploaded }: { onUploaded: () => void }) {
           chapterId,
           topicId,
           noteTypeId: noteTypeId || null,
+          previewFileUrl: previewFileUrl || null,
+          fullFileUrl: fullFileUrl || null,
           featured,
           published,
-          pdfPath: `pdfs/${Date.now()}-${title.replace(/\s+/g, '-').toLowerCase()}.pdf`,
         }),
       })
 
@@ -1119,6 +1122,8 @@ function UploadTab({ onUploaded }: { onUploaded: () => void }) {
         setMrp('')
         setPageCount('')
         setNoteTypeId('')
+        setPreviewFileUrl('')
+        setFullFileUrl('')
         setFeatured(false)
         setPublished(true)
         onUploaded()
@@ -1290,6 +1295,32 @@ function UploadTab({ onUploaded }: { onUploaded: () => void }) {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+
+            <Separator />
+
+            <div className="space-y-2">
+              <Label htmlFor="previewFileUrl">Preview File URL (Google Drive)</Label>
+              <Input
+                id="previewFileUrl"
+                type="url"
+                value={previewFileUrl}
+                onChange={(e) => setPreviewFileUrl(e.target.value)}
+                placeholder="https://drive.google.com/file/d/.../view"
+              />
+              <p className="text-xs text-muted-foreground">Google Drive share link for the preview PDF (2-page watermarked version)</p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="fullFileUrl">Full File URL (Google Drive) *</Label>
+              <Input
+                id="fullFileUrl"
+                type="url"
+                value={fullFileUrl}
+                onChange={(e) => setFullFileUrl(e.target.value)}
+                placeholder="https://drive.google.com/file/d/.../view"
+              />
+              <p className="text-xs text-muted-foreground">Google Drive share link for the full PDF that buyers will download</p>
             </div>
 
             <Separator />

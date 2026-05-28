@@ -523,7 +523,7 @@ export const pdfDb = {
     include?: any;
   }) => {
     const admin = getAdmin();
-    let query = admin.from('Pdf').select('*, class: Class(*), subject: Subject(*), chapter: Chapter(*), topic: Topic(*), noteType: NoteType(*)');
+    let query = admin.from('Pdf').select('*, class: Class(*), subject: Subject(*), chapter: Chapter(*), topic: Topic(*)');
 
     // Apply where filters
     if (options?.where) {
@@ -543,6 +543,18 @@ export const pdfDb = {
     const { data, error } = await query;
     if (error) throw new Error(error.message);
 
+    // Resolve noteType manually (no FK relationship in Supabase)
+    const noteTypeIds = [...new Set((data || []).map((p: any) => p.noteTypeId).filter(Boolean))];
+    let noteTypeMap: Record<string, any> = {};
+    if (noteTypeIds.length > 0) {
+      const { data: noteTypes } = await admin.from('NoteType').select('*').in('id', noteTypeIds);
+      (noteTypes || []).forEach((nt: any) => { noteTypeMap[nt.id] = nt; });
+    }
+    const pdfsWithNoteType = (data || []).map((pdf: any) => ({
+      ...pdf,
+      noteType: pdf.noteTypeId ? (noteTypeMap[pdf.noteTypeId] || null) : null,
+    }));
+
     // Get order counts if include._count is requested
     if (options?.include?._count?.select?.orders) {
       const { data: orderData } = await admin.from('Order').select('pdfId');
@@ -551,7 +563,7 @@ export const pdfDb = {
         orderCountMap[o.pdfId] = (orderCountMap[o.pdfId] || 0) + 1;
       });
 
-      return (data || []).map((pdf: any) => ({
+      return pdfsWithNoteType.map((pdf: any) => ({
         ...pdf,
         _count: {
           orders: orderCountMap[pdf.id] || 0,
@@ -559,7 +571,7 @@ export const pdfDb = {
       }));
     }
 
-    return data || [];
+    return pdfsWithNoteType;
   },
 
   findUnique: async (options: { where: { id: string }; include?: any }) => {
@@ -581,9 +593,10 @@ export const pdfDb = {
     if (options.include?.topic || options.include) {
       includes.push('topic: Topic(*)');
     }
-    if (options.include?.noteType || options.include) {
-      includes.push('noteType: NoteType(*)');
-    }
+    // noteType is resolved manually after query (no FK in Supabase)
+    // if (options.include?.noteType || options.include) {
+    //   includes.push('noteType: NoteType(*)');
+    // }
     if (options.include?.orders) {
       includes.push('orders: Order(*)');
     }
@@ -594,6 +607,14 @@ export const pdfDb = {
 
     const { data, error } = await admin.from('Pdf').select(selectFields).eq('id', options.where.id).single();
     if (error) return null;
+
+    // Resolve noteType manually (no FK relationship in Supabase)
+    if (data && data.noteTypeId) {
+      const { data: noteType } = await admin.from('NoteType').select('*').eq('id', data.noteTypeId).single();
+      data.noteType = noteType || null;
+    } else if (data) {
+      data.noteType = null;
+    }
 
     // Rename 'orders' array to match Prisma convention if present
     if (data && data.orders && !data._count) {
@@ -607,8 +628,17 @@ export const pdfDb = {
   create: async (options: { data: any; include?: any }) => {
     const admin = getAdmin();
     const data = { id: generateId(), ...options.data };
-    const { data: result, error } = await admin.from('Pdf').insert(data).select('*, class: Class(*), subject: Subject(*), chapter: Chapter(*), topic: Topic(*), noteType: NoteType(*)').single();
+    const { data: result, error } = await admin.from('Pdf').insert(data).select('*, class: Class(*), subject: Subject(*), chapter: Chapter(*), topic: Topic(*)').single();
     if (error) throw new Error(error.message);
+
+    // Resolve noteType manually
+    if (result && result.noteTypeId) {
+      const { data: noteType } = await admin.from('NoteType').select('*').eq('id', result.noteTypeId).single();
+      result.noteType = noteType || null;
+    } else if (result) {
+      result.noteType = null;
+    }
+
     return result;
   },
 
@@ -642,9 +672,18 @@ export const pdfDb = {
       .from('Pdf')
       .update({ ...regularData, updatedAt: new Date().toISOString() })
       .eq('id', options.where.id)
-      .select('*, class: Class(*), subject: Subject(*), chapter: Chapter(*), topic: Topic(*), noteType: NoteType(*)')
+      .select('*, class: Class(*), subject: Subject(*), chapter: Chapter(*), topic: Topic(*)')
       .single();
     if (error) throw new Error(error.message);
+
+    // Resolve noteType manually
+    if (result && result.noteTypeId) {
+      const { data: noteType } = await admin.from('NoteType').select('*').eq('id', result.noteTypeId).single();
+      result.noteType = noteType || null;
+    } else if (result) {
+      result.noteType = null;
+    }
+
     return result;
   },
 

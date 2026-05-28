@@ -37,10 +37,10 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { title, description, price, classId, subjectId, chapterId, topicId, featured, published, pdfPath, thumbnailPath, pageCount } = body;
+    const { title, description, price, mrp, classId, subjectId, chapterId, topicId, featured, published, pdfPath, thumbnailPath, pageCount, previewFileUrl, fullFileUrl, noteTypeId } = body;
 
-    if (!title || !classId || !subjectId || !chapterId || !topicId || !pdfPath) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+    if (!title || !classId || !subjectId || !chapterId || !topicId) {
+      return NextResponse.json({ error: 'Missing required fields: title, classId, subjectId, chapterId, topicId' }, { status: 400 });
     }
 
     const pdf = await db.pdf.create({
@@ -48,14 +48,18 @@ export async function POST(request: NextRequest) {
         title,
         description: description || '',
         price: parseFloat(price) || 0,
+        mrp: mrp ? parseFloat(mrp) : null,
         classId,
         subjectId,
         chapterId,
         topicId,
+        noteTypeId: noteTypeId || null,
         featured: featured || false,
         published: published !== false,
-        pdfPath,
+        pdfPath: pdfPath || `pdfs/${Date.now()}-${title.replace(/\s+/g, '-').toLowerCase()}.pdf`,
         thumbnailPath: thumbnailPath || null,
+        previewFileUrl: previewFileUrl || null,
+        fullFileUrl: fullFileUrl || null,
         pageCount: parseInt(pageCount) || 0,
       },
       include: {
@@ -67,7 +71,7 @@ export async function POST(request: NextRequest) {
     });
 
     return NextResponse.json(pdf, { status: 201 });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error creating PDF:', error);
     return NextResponse.json({ error: 'Failed to create PDF' }, { status: 500 });
   }

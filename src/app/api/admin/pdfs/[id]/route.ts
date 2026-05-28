@@ -43,7 +43,7 @@ export async function PUT(
 
     const { id } = await params;
     const body = await request.json();
-    const { title, description, price, classId, subjectId, chapterId, topicId, featured, published, pdfPath, thumbnailPath, pageCount } = body;
+    const { title, description, price, mrp, classId, subjectId, chapterId, topicId, featured, published, pdfPath, thumbnailPath, pageCount, previewFileUrl, fullFileUrl, noteTypeId } = body;
 
     const pdf = await db.pdf.update({
       where: { id },
@@ -51,14 +51,18 @@ export async function PUT(
         ...(title !== undefined && { title }),
         ...(description !== undefined && { description }),
         ...(price !== undefined && { price: parseFloat(price) }),
+        ...(mrp !== undefined && { mrp: mrp ? parseFloat(mrp) : null }),
         ...(classId !== undefined && { classId }),
         ...(subjectId !== undefined && { subjectId }),
         ...(chapterId !== undefined && { chapterId }),
         ...(topicId !== undefined && { topicId }),
+        ...(noteTypeId !== undefined && { noteTypeId: noteTypeId || null }),
         ...(featured !== undefined && { featured }),
         ...(published !== undefined && { published }),
         ...(pdfPath !== undefined && { pdfPath }),
         ...(thumbnailPath !== undefined && { thumbnailPath }),
+        ...(previewFileUrl !== undefined && { previewFileUrl: previewFileUrl || null }),
+        ...(fullFileUrl !== undefined && { fullFileUrl: fullFileUrl || null }),
         ...(pageCount !== undefined && { pageCount: parseInt(pageCount) }),
       },
       include: { class: true, subject: true, chapter: true, topic: true },
