@@ -566,7 +566,7 @@ export default function HomePage() {
             <div className="relative text-center space-y-4 max-w-2xl mx-auto">
               <h2 className="text-2xl sm:text-3xl font-bold">Start Your Exam Preparation Today</h2>
               <p className="text-emerald-100">
-                Join 1000+ students who trust Vedant Academy for their exam preparation. Access notes, PYQs, and study material instantly.
+                Join 1000+ students who trust PDFWallah for their exam preparation. Access notes, PYQs, and study material instantly.
               </p>
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
                 <Link href="/search">

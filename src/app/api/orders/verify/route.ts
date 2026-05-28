@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
         status: 'paid',
         razorpayPaymentId,
         razorpaySignature,
-        watermarkText: 'Purchased from Vedant Academy',
+        watermarkText: 'Purchased from PDFWallah',
       },
       include: { pdf: true },
     });
@@ -97,7 +97,7 @@ async function sendEmailReceipt(
   amount: number
 ) {
   const resendApiKey = process.env.RESEND_API_KEY;
-  const emailFrom = process.env.EMAIL_FROM || 'Vedant Academy <onboarding@resend.dev>';
+  const emailFrom = process.env.EMAIL_FROM || 'PDFWallah <onboarding@resend.dev>';
 
   if (!resendApiKey) {
     console.log('RESEND_API_KEY not set - skipping email receipt');
@@ -110,11 +110,11 @@ async function sendEmailReceipt(
   const emailPayload = {
     from: emailFrom,
     to: email,
-    subject: `Your Purchase: ${pdfTitle} - Vedant Academy`,
+    subject: `Your Purchase: ${pdfTitle} - PDFWallah`,
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
         <div style="text-align: center; margin-bottom: 30px;">
-          <h1 style="color: #059669; margin: 0;">Vedant Academy</h1>
+          <h1 style="color: #059669; margin: 0;">PDFWallah</h1>
           <p style="color: #6b7280; margin: 5px 0 0;">Digital Notes Store</p>
         </div>
         <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
@@ -143,7 +143,7 @@ async function sendEmailReceipt(
           </p>
         </div>
         <div style="text-align: center; color: #9ca3af; font-size: 12px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
-          <p style="margin: 0;">Vedant Academy - Digital Notes Store</p>
+          <p style="margin: 0;">PDFWallah - Digital Notes Store</p>
           <p style="margin: 5px 0 0;">If you need help, reply to this email.</p>
         </div>
       </div>

@@ -19,10 +19,10 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Vedant Academy - Free Study Material for School & Competitive Exams",
+  title: "PDFWallah - Free Study Material for School & Competitive Exams",
   description: "Notes, PYQs, PDFs & Study Material for Class 9-12, JEE, NEET, CUET, REET, SSC & more. Download instantly.",
   keywords: [
-    "Vedant Academy", "CBSE notes", "PDF notes", "study material", "digital notes",
+    "PDFWallah", "CBSE notes", "PDF notes", "study material", "digital notes",
     "Class 9", "Class 10", "Class 11", "Class 12", "board exams",
     "JEE", "NEET", "CUET", "REET", "SSC", "Railway", "Rajasthan Exams",
     "previous year questions", "PYQs", "formula sheets", "handwritten notes",
@@ -32,7 +32,7 @@ export const metadata: Metadata = {
     icon: "/logo.svg",
   },
   openGraph: {
-    title: "Vedant Academy - Free Study Material for School & Competitive Exams",
+    title: "PDFWallah - Free Study Material for School & Competitive Exams",
     description: "Notes, PYQs, PDFs & Study Material for Class 9-12, JEE, NEET, CUET, REET, SSC & more. Download instantly.",
     type: "website",
   },

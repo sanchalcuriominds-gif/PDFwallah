@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
@@ -16,11 +16,6 @@ import {
   MessageCircle,
   CheckCircle,
   Eye,
-  Maximize2,
-  ChevronLeft,
-  ChevronRight,
-  Loader2,
-  AlertCircle,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -30,6 +25,7 @@ import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/
 import { PdfGrid } from '@/components/pdf/pdf-grid'
 import { PdfDetailSkeleton } from '@/components/pdf/pdf-detail-skeleton'
 import { PaymentModal } from '@/components/pdf/payment-modal'
+import { FlipbookPreview } from '@/components/pdf/flipbook-preview'
 import { Breadcrumbs } from '@/components/layout/breadcrumbs'
 
 function getNoteTypeColor(name: string): string {
@@ -112,14 +108,6 @@ export default function PdfDetailPage() {
   const [relatedPdfs, setRelatedPdfs] = useState<RelatedPdf[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isPaymentOpen, setIsPaymentOpen] = useState(false)
-  const [previewLoading, setPreviewLoading] = useState(true)
-  const [previewError, setPreviewError] = useState(false)
-
-  // Disable right-click on preview area
-  const handlePreviewContextMenu = useCallback((e: React.MouseEvent) => {
-    e.preventDefault()
-    return false
-  }, [])
 
   useEffect(() => {
     async function fetchPdf() {
@@ -286,15 +274,11 @@ export default function PdfDetailPage() {
           transition={{ duration: 0.5 }}
         >
           <Card className="overflow-hidden border-emerald-200 dark:border-emerald-800">
-            <CardContent
-              className="p-4 sm:p-6 select-none"
-              onContextMenu={handlePreviewContextMenu}
-              style={{ userSelect: 'none', WebkitUserSelect: 'none' }}
-            >
+            <CardContent className="p-4 sm:p-6">
               {hasPreview ? (
-                <div className="relative">
+                <div className="space-y-3">
                   {/* Preview Header */}
-                  <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Eye className="w-4 h-4 text-emerald-600" />
                       <span>Preview — First 2 pages with watermark</span>
@@ -304,52 +288,15 @@ export default function PdfDetailPage() {
                     </Badge>
                   </div>
 
-                  {/* PDF Iframe Viewer */}
-                  <div className="relative w-full rounded-lg overflow-hidden border bg-muted/30" style={{ height: '600px' }}>
-                    {previewLoading && (
-                      <div className="absolute inset-0 flex flex-col items-center justify-center bg-muted/50 z-10">
-                        <Loader2 className="w-10 h-10 text-emerald-600 animate-spin mb-3" />
-                        <p className="text-sm text-muted-foreground">Loading preview...</p>
-                      </div>
-                    )}
-                    {previewError && (
-                      <div className="absolute inset-0 flex flex-col items-center justify-center bg-muted/50 z-10">
-                        <AlertCircle className="w-10 h-10 text-amber-500 mb-3" />
-                        <p className="text-sm text-muted-foreground">Failed to load preview. The PDF might not be available yet.</p>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="mt-3"
-                          onClick={() => {
-                            setPreviewError(false)
-                            setPreviewLoading(true)
-                            // Force reload iframe
-                            const iframe = document.querySelector('iframe[data-preview]') as HTMLIFrameElement
-                            if (iframe) {
-                              iframe.src = `/api/preview/${pdf.id}`
-                            }
-                          }}
-                        >
-                          Retry
-                        </Button>
-                      </div>
-                    )}
-                    <iframe
-                      data-preview="true"
-                      src={`/api/preview/${pdf.id}`}
-                      className="w-full h-full border-0"
-                      title={`Preview of ${pdf.title}`}
-                      onLoad={() => setPreviewLoading(false)}
-                      onError={() => {
-                        setPreviewLoading(false)
-                        setPreviewError(true)
-                      }}
-                      style={{ pointerEvents: 'auto' }}
-                    />
-                  </div>
+                  {/* Flipbook Preview */}
+                  <FlipbookPreview
+                    pdfUrl={`/api/preview/${pdf.id}`}
+                    title={pdf.title}
+                    pageCount={pdf.pageCount}
+                  />
 
                   {/* Preview Footer */}
-                  <div className="flex items-center justify-center gap-2 mt-4 text-xs text-muted-foreground">
+                  <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
                     <Shield className="w-3 h-3" />
                     <span>Watermarked preview · Purchase for full PDF without watermark</span>
                   </div>

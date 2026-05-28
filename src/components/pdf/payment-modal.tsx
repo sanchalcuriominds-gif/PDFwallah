@@ -107,7 +107,7 @@ export function PaymentModal({ isOpen, onClose, pdf }: PaymentModalProps) {
             key: orderData.keyId,
             amount: orderData.amount * 100, // amount in paise
             currency: orderData.currency,
-            name: 'Vedant Academy',
+            name: 'PDFWallah',
             description: pdf.title,
             image: '/logo.png',
             order_id: orderData.razorpayOrderId,

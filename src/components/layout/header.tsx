@@ -72,8 +72,8 @@ export function Header() {
               <BookOpen className="w-5 h-5" />
             </div>
             <span className="text-lg font-bold tracking-tight">
-              <span className="text-emerald-600 dark:text-emerald-400">Vedant</span>{' '}
-              <span className="text-foreground">Academy</span>
+              <span className="text-emerald-600 dark:text-emerald-400">PDF</span>{' '}
+              <span className="text-foreground">Wallah</span>
             </span>
           </Link>
 
