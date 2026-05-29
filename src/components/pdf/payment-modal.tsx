@@ -119,7 +119,19 @@ export function PaymentModal({ isOpen, onClose, pdf }: PaymentModalProps) {
       const orderData = await orderRes.json()
 
       if (!orderRes.ok) {
+        // If already purchased, show download directly
+        if (orderData.alreadyPurchased && orderData.downloadToken) {
+          setDownloadToken(orderData.downloadToken)
+          setState('success')
+          return
+        }
         throw new Error(orderData.error || 'Failed to create order')
+      }
+
+      // Validate the order data before opening Razorpay
+      if (!orderData.razorpayOrderId || !orderData.keyId) {
+        console.error('Invalid order data:', orderData)
+        throw new Error('Invalid order data. Please try again.')
       }
 
       // Step 2: Make sure Razorpay script is loaded
@@ -127,6 +139,8 @@ export function PaymentModal({ isOpen, onClose, pdf }: PaymentModalProps) {
       if (!scriptLoaded) {
         throw new Error('Failed to load Razorpay. Please check your internet connection and try again.')
       }
+
+      console.log('Opening Razorpay with order:', orderData.razorpayOrderId, 'key:', orderData.keyId)
 
       // Step 2: Open Razorpay checkout modal
       const paymentResult = await new Promise<{ razorpayPaymentId: string; razorpayOrderId: string; razorpaySignature: string }>(

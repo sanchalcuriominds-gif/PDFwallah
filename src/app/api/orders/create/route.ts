@@ -24,33 +24,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'PDF is not available for purchase' }, { status: 400 });
     }
 
-    // Spam prevention: Check for recent unpaid orders by this email/phone (within 10 min)
-    if (buyerEmail || buyerPhone) {
-      const tenMinAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
-      const recentOrders = await db.order.findMany({
-        where: {
-          pdfId: pdfId,
-          status: 'created',
-          createdAt: { gte: tenMinAgo },
-        },
-        take: 5,
-      });
-
-      // Filter by email or phone match
-      const spammyOrders = recentOrders.filter(
-        (o: any) =>
-          (buyerEmail && o.buyerEmail === buyerEmail) ||
-          (buyerPhone && o.buyerPhone === buyerPhone)
-      );
-
-      if (spammyOrders.length >= 3) {
-        return NextResponse.json(
-          { error: 'Too many pending orders. Please wait a few minutes and try again.' },
-          { status: 429 }
-        );
-      }
-    }
-
     // Check if already purchased (by email)
     if (buyerEmail) {
       const existingPaid = await db.order.findFirst({
@@ -70,34 +43,62 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Reuse existing unpaid order within 10 minutes (idempotency)
-    const tenMinAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
-    const existingOrder = await db.order.findFirst({
-      where: {
-        pdfId: pdfId,
-        status: 'created',
-        buyerEmail: buyerEmail || null,
-        buyerPhone: buyerPhone || null,
-        createdAt: { gte: tenMinAgo },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
-
-    if (existingOrder) {
-      // Reuse the existing Razorpay order
-      return NextResponse.json({
-        orderId: existingOrder.id,
-        razorpayOrderId: (existingOrder as any).razorpayOrderId,
-        amount: pdf.price,
-        currency: 'INR',
-        keyId: getRazorpayKeyId(),
-        pdfTitle: pdf.title,
-        pdfDescription: pdf.description,
+    // Spam prevention: Check for too many recent orders by this email/phone (within 10 min)
+    if (buyerEmail || buyerPhone) {
+      const tenMinAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+      const recentOrders = await db.order.findMany({
+        where: {
+          pdfId: pdfId,
+          status: 'created',
+          createdAt: { gte: tenMinAgo },
+        },
+        take: 5,
       });
+
+      const spammyOrders = recentOrders.filter(
+        (o: any) =>
+          (buyerEmail && o.buyerEmail === buyerEmail) ||
+          (buyerPhone && o.buyerPhone === buyerPhone)
+      );
+
+      if (spammyOrders.length >= 3) {
+        return NextResponse.json(
+          { error: 'Too many pending orders. Please wait a few minutes and try again.' },
+          { status: 429 }
+        );
+      }
     }
 
-    // Create a REAL Razorpay order
+    // ⚠️ IMPORTANT: Always create a FRESH Razorpay order for each checkout attempt.
+    // Previously we reused "created" orders but this caused "Something went wrong" errors
+    // because:
+    // 1. Razorpay orders expire after a certain time and can't be reused
+    // 2. If a previous attempt was partially completed, reusing the order_id breaks
+    // 3. Race conditions where status hadn't been updated yet
+    // Now we always create a new order — Razorpay allows multiple orders per PDF.
+
+    // Mark any old "created" orders for this PDF as abandoned (cleanup)
+    try {
+      const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+      await db.order.updateMany({
+        where: {
+          pdfId: pdfId,
+          status: 'created',
+          createdAt: { lt: fiveMinAgo },
+        },
+        data: {
+          status: 'failed',
+        },
+      });
+    } catch (cleanupErr) {
+      // Non-critical — don't block order creation if cleanup fails
+      console.error('Order cleanup error:', cleanupErr);
+    }
+
+    // Create a NEW Razorpay order every time
     const amountInPaise = amountToPaise(pdf.price);
+
+    console.log(`Creating Razorpay order: ₹${pdf.price} (${amountInPaise} paise) for PDF ${pdf.id}`);
 
     const razorpayOrder = await createRazorpayOrder({
       amount: amountInPaise,
@@ -108,6 +109,8 @@ export async function POST(request: NextRequest) {
         pdfTitle: pdf.title,
       },
     });
+
+    console.log(`Razorpay order created: ${razorpayOrder.id}`);
 
     // Create order in database
     const order = await db.order.create({
