@@ -20,7 +20,7 @@ export async function createDownloadToken(orderId: string): Promise<string> {
   return token;
 }
 
-export async function validateDownloadToken(token: string): Promise<{ valid: boolean; orderId?: string; pdfPath?: string; reason?: string }> {
+export async function validateDownloadToken(token: string): Promise<{ valid: boolean; orderId?: string; pdfUrl?: string; pdfTitle?: string; reason?: string }> {
   if (!token) return { valid: false, reason: 'No token provided' };
 
   // Use findUnique with downloadToken as the where filter
@@ -49,7 +49,16 @@ export async function validateDownloadToken(token: string): Promise<{ valid: boo
     return { valid: false, reason: `Maximum downloads (${MAX_DOWNLOAD_USES}) reached for this purchase.` };
   }
 
-  return { valid: true, orderId: order.id, pdfPath: (order as any).pdf?.pdfPath };
+  // Use fullFileUrl (Google Drive URL) for the actual download
+  // Fall back to pdfPath for backwards compatibility
+  const pdf = (order as any).pdf;
+  const pdfUrl = pdf?.fullFileUrl || pdf?.pdfPath;
+
+  if (!pdfUrl) {
+    return { valid: false, reason: 'PDF file not available. Please contact support.' };
+  }
+
+  return { valid: true, orderId: order.id, pdfUrl, pdfTitle: pdf?.title };
 }
 
 export async function incrementDownloadUseCount(token: string): Promise<void> {

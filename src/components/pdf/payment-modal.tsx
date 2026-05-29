@@ -385,7 +385,14 @@ export function PaymentModal({ isOpen, onClose, pdf }: PaymentModalProps) {
             </div>
             <Button
               onClick={() => {
-                window.open(`/api/download?token=${downloadToken}`, '_blank')
+                // Use a hidden anchor with download attribute to force file download
+                // instead of opening the PDF in a new tab (which shows blank on mobile)
+                const a = document.createElement('a')
+                a.href = `/api/download?token=${downloadToken}`
+                a.download = 'PDFWallah_Notes.pdf'
+                document.body.appendChild(a)
+                a.click()
+                document.body.removeChild(a)
               }}
               className="bg-emerald-600 hover:bg-emerald-700 text-white h-12 text-base px-8"
             >

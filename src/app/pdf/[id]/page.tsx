@@ -466,7 +466,14 @@ export default function PdfDetailPage() {
                       <span className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">Already Purchased</span>
                     </div>
                     <Button
-                      onClick={() => window.open(`/api/download?token=${existingPurchase.token}`, '_blank')}
+                      onClick={() => {
+                        const a = document.createElement('a')
+                        a.href = `/api/download?token=${existingPurchase.token}`
+                        a.download = 'PDFWallah_Notes.pdf'
+                        document.body.appendChild(a)
+                        a.click()
+                        document.body.removeChild(a)
+                      }}
                       className="w-full bg-emerald-600 hover:bg-emerald-700 text-white h-12 text-base gap-2"
                     >
                       <Download className="w-5 h-5" />

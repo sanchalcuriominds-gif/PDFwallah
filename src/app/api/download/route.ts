@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
 
     const result = await validateDownloadToken(token);
 
-    if (!result.valid || !result.pdfPath) {
+    if (!result.valid || !result.pdfUrl) {
       return NextResponse.json(
         {
           error: result.reason || 'Invalid or expired download link',
@@ -28,7 +28,9 @@ export async function GET(request: NextRequest) {
     await incrementDownloadUseCount(token);
 
     // Proxy the PDF file - never expose the actual URL
-    const pdfUrl = result.pdfPath;
+    const pdfUrl = result.pdfUrl;
+
+    console.log('Downloading PDF from:', pdfUrl.substring(0, 80) + '...');
 
     // Add confirm=t for Google Drive shared links to bypass virus scan warning
     let fetchUrl = pdfUrl;
@@ -56,21 +58,20 @@ export async function GET(request: NextRequest) {
         );
       }
 
+      const contentType = response.headers.get('content-type') || 'application/pdf';
       const pdfBuffer = await response.arrayBuffer();
 
-      // Determine filename from URL or use default
-      const urlParts = pdfUrl.split('/');
-      let filename = 'notes.pdf';
-      // Try to extract a meaningful filename
-      const titleMatch = pdfUrl.match(/\/([^/?]+)\.pdf/i);
-      if (titleMatch) {
-        filename = decodeURIComponent(titleMatch[1]) + '.pdf';
-      }
+      // Use the PDF title from validation result if available
+      const filename = result.pdfTitle
+        ? `${result.pdfTitle.replace(/[^a-zA-Z0-9._-]/g, '_')}.pdf`
+        : 'PDFWallah_Notes.pdf';
 
+      // Force download with Content-Disposition: attachment
+      // and prevent browser from trying to display the PDF inline
       return new NextResponse(pdfBuffer, {
         headers: {
           'Content-Type': 'application/pdf',
-          'Content-Disposition': `attachment; filename="${filename}"`,
+          'Content-Disposition': `attachment; filename="${encodeURIComponent(filename)}"; filename*=UTF-8''${encodeURIComponent(filename)}`,
           'Cache-Control': 'no-store, no-cache, must-revalidate',
           'Pragma': 'no-cache',
           'Expires': '0',
