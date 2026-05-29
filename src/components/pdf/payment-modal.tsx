@@ -105,23 +105,16 @@ export function PaymentModal({ isOpen, onClose, pdf }: PaymentModalProps) {
     setErrorMessage('')
 
     try {
-      // Step 1: Load Razorpay script + Create order IN PARALLEL
-      const [scriptLoaded, orderRes] = await Promise.all([
-        loadRazorpayScript(),
-        fetch('/api/orders/create', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            pdfId: pdf.id,
-            buyerEmail: buyerEmail || undefined,
-            buyerPhone: buyerPhone || undefined,
-          }),
+      // Step 1: Create order on our server first
+      const orderRes = await fetch('/api/orders/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          pdfId: pdf.id,
+          buyerEmail: buyerEmail || undefined,
+          buyerPhone: buyerPhone || undefined,
         }),
-      ])
-
-      if (!scriptLoaded) {
-        throw new Error('Failed to load Razorpay. Please check your internet connection and try again.')
-      }
+      })
 
       const orderData = await orderRes.json()
 
@@ -129,12 +122,21 @@ export function PaymentModal({ isOpen, onClose, pdf }: PaymentModalProps) {
         throw new Error(orderData.error || 'Failed to create order')
       }
 
+      // Step 2: Make sure Razorpay script is loaded
+      const scriptLoaded = await loadRazorpayScript()
+      if (!scriptLoaded) {
+        throw new Error('Failed to load Razorpay. Please check your internet connection and try again.')
+      }
+
       // Step 2: Open Razorpay checkout modal
       const paymentResult = await new Promise<{ razorpayPaymentId: string; razorpayOrderId: string; razorpaySignature: string }>(
         (resolve, reject) => {
           const options = {
             key: orderData.keyId,
-            amount: orderData.amount * 100, // amount in paise
+            // ⚠️ Do NOT pass 'amount' here — Razorpay already knows the
+            // amount from the order_id. Passing it separately can cause
+            // floating-point mismatches (e.g. 9.99*100 = 998.9999 ≠ 999)
+            // which triggers "Something went wrong" in checkout.
             currency: orderData.currency,
             name: 'PDFWallah',
             description: pdf.title,
@@ -148,11 +150,6 @@ export function PaymentModal({ isOpen, onClose, pdf }: PaymentModalProps) {
             theme: {
               color: '#059669', // emerald-600
             },
-            retry: {
-              enabled: true,
-              max_count: 3,
-            },
-            timeout: 600, // 10 minutes
             handler: function (response: any) {
               resolve({
                 razorpayPaymentId: response.razorpay_payment_id,
