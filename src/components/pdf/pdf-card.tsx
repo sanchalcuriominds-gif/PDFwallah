@@ -1,6 +1,8 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { FileText, Download, Star, BookOpen } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -52,6 +54,18 @@ export function PdfCard({ pdf, index = 0 }: PdfCardProps) {
   const displayMrp = pdf.mrp && pdf.mrp > pdf.price ? pdf.mrp : pdf.price * 2
   const discountPercent = Math.round(((displayMrp - pdf.price) / displayMrp) * 100)
 
+  // Track thumbnail loading state
+  const [thumbLoaded, setThumbLoaded] = useState(false)
+  const [thumbError, setThumbError] = useState(false)
+
+  // Build the thumbnail URL — use our proxy API route
+  const thumbnailUrl = `/api/pdf-thumb/${pdf.id}`
+  // Show thumbnail only if it loaded successfully (no error)
+  const showThumbnail = thumbLoaded && !thumbError
+
+  // Build SEO-friendly alt text
+  const altText = `${pdf.title} - ${pdf.class.name} ${pdf.subject.name} PDF Cover`
+
   return (
     <Link href={`/pdf/${pdf.id}`}>
       <motion.div
@@ -61,12 +75,27 @@ export function PdfCard({ pdf, index = 0 }: PdfCardProps) {
         <Card className="overflow-hidden h-full group cursor-pointer border-border/50 hover:border-emerald-200 dark:hover:border-emerald-800 transition-colors">
           {/* Thumbnail */}
           <div className="relative aspect-[4/3] overflow-hidden">
+            {/* Gradient background — always rendered as fallback */}
             <div className={`w-full h-full bg-gradient-to-br ${gradients[gradientIndex]} flex items-center justify-center`}>
               <FileText className="w-16 h-16 text-white/80" />
             </div>
 
+            {/* Thumbnail image — loads on top of gradient */}
+            {!thumbError && (
+              <Image
+                src={thumbnailUrl}
+                alt={altText}
+                fill
+                sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+                className={`object-cover transition-opacity duration-300 ${showThumbnail ? 'opacity-100' : 'opacity-0'}`}
+                onLoad={() => setThumbLoaded(true)}
+                onError={() => setThumbError(true)}
+                priority={index < 4}
+              />
+            )}
+
             {/* Price badge with MRP strikethrough */}
-            <div className="absolute top-3 right-3 flex flex-col items-end gap-1">
+            <div className="absolute top-3 right-3 flex flex-col items-end gap-1 z-10">
               <Badge className="bg-orange-600 text-white font-bold shadow-md text-xs">
                 {discountPercent}% OFF
               </Badge>
@@ -78,7 +107,7 @@ export function PdfCard({ pdf, index = 0 }: PdfCardProps) {
 
             {/* Bestseller badge */}
             {isBestseller && (
-              <div className="absolute top-3 left-3">
+              <div className="absolute top-3 left-3 z-10">
                 <Badge className="bg-amber-500 text-white font-semibold shadow-md gap-1">
                   <Star className="w-3 h-3 fill-current" />
                   Bestseller
@@ -88,7 +117,7 @@ export function PdfCard({ pdf, index = 0 }: PdfCardProps) {
 
             {/* Featured badge */}
             {pdf.featured && !isBestseller && (
-              <div className="absolute top-3 left-3">
+              <div className="absolute top-3 left-3 z-10">
                 <Badge className="bg-emerald-600 text-white font-semibold shadow-md gap-1">
                   <BookOpen className="w-3 h-3" />
                   Featured
@@ -97,7 +126,7 @@ export function PdfCard({ pdf, index = 0 }: PdfCardProps) {
             )}
 
             {/* Hover overlay */}
-            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300" />
+            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300 z-10" />
           </div>
 
           {/* Content */}
