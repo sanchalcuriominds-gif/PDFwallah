@@ -108,6 +108,7 @@ export default function PdfDetailPage() {
   const [relatedPdfs, setRelatedPdfs] = useState<RelatedPdf[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isPaymentOpen, setIsPaymentOpen] = useState(false)
+  const [existingPurchase, setExistingPurchase] = useState<{ token: string; title: string; date: string } | null>(null)
 
   useEffect(() => {
     async function fetchPdf() {
@@ -124,6 +125,14 @@ export default function PdfDetailPage() {
         setRelatedPdfs(
           (relatedData.pdfs || []).filter((p: RelatedPdf) => p.id !== id).slice(0, 4)
         )
+
+        // Check localStorage for existing purchase of this PDF
+        try {
+          const purchases = JSON.parse(localStorage.getItem('pdfwallah_purchases') || '{}')
+          if (purchases[pdfData.id]) {
+            setExistingPurchase(purchases[pdfData.id])
+          }
+        } catch {}
       } catch (error) {
         console.error('Error fetching PDF:', error)
       } finally {
@@ -449,13 +458,31 @@ export default function PdfDetailPage() {
                   </div>
                 </div>
 
-                <Button
-                  onClick={() => setIsPaymentOpen(true)}
-                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white h-12 text-base gap-2"
-                >
-                  <ShoppingBag className="w-5 h-5" />
-                  Buy Now - ₹{pdf.price}
-                </Button>
+                {/* Already Purchased - Show Download */}
+                {existingPurchase ? (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-center gap-2 p-3 bg-emerald-100 dark:bg-emerald-900 rounded-lg">
+                      <CheckCircle className="w-5 h-5 text-emerald-600" />
+                      <span className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">Already Purchased</span>
+                    </div>
+                    <Button
+                      onClick={() => window.open(`/api/download?token=${existingPurchase.token}`, '_blank')}
+                      className="w-full bg-emerald-600 hover:bg-emerald-700 text-white h-12 text-base gap-2"
+                    >
+                      <Download className="w-5 h-5" />
+                      Download PDF Again
+                    </Button>
+                    <p className="text-xs text-muted-foreground text-center">Purchased on {new Date(existingPurchase.date).toLocaleDateString('en-IN')}</p>
+                  </div>
+                ) : (
+                  <Button
+                    onClick={() => setIsPaymentOpen(true)}
+                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white h-12 text-base gap-2"
+                  >
+                    <ShoppingBag className="w-5 h-5" />
+                    Buy Now - ₹{pdf.price}
+                  </Button>
+                )}
 
                 <Button
                   onClick={handleWhatsAppShare}
@@ -487,7 +514,16 @@ export default function PdfDetailPage() {
       {/* Payment Modal */}
       <PaymentModal
         isOpen={isPaymentOpen}
-        onClose={() => setIsPaymentOpen(false)}
+        onClose={() => {
+          setIsPaymentOpen(false)
+          // Re-check localStorage for purchase after modal closes
+          try {
+            const purchases = JSON.parse(localStorage.getItem('pdfwallah_purchases') || '{}')
+            if (purchases[pdf.id]) {
+              setExistingPurchase(purchases[pdf.id])
+            }
+          } catch {}
+        }}
         pdf={pdf}
       />
     </div>

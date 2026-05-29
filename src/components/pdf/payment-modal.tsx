@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Dialog,
   DialogContent,
@@ -37,6 +37,13 @@ function loadRazorpayScript(): Promise<boolean> {
       resolve(true)
       return
     }
+    // Check if script tag already exists (being loaded)
+    const existing = document.querySelector('script[src="https://checkout.razorpay.com/v1/checkout.js"]')
+    if (existing) {
+      existing.addEventListener('load', () => resolve(true))
+      existing.addEventListener('error', () => resolve(false))
+      return
+    }
     const script = document.createElement('script')
     script.src = 'https://checkout.razorpay.com/v1/checkout.js'
     script.async = true
@@ -69,17 +76,27 @@ export function PaymentModal({ isOpen, onClose, pdf }: PaymentModalProps) {
   const [buyerName, setBuyerName] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
   const [downloadToken, setDownloadToken] = useState('')
-  const [scriptReady, setScriptReady] = useState(false)
 
-  // 🔑 Preload Razorpay script as soon as the modal opens
-  // so it's ready by the time user fills in details and clicks Pay
+  // 🔑 Preload Razorpay script on PAGE LOAD (not just modal open)
+  // This way the script is already cached when user clicks Buy Now
   useEffect(() => {
-    if (isOpen && !window.Razorpay) {
-      loadRazorpayScript().then((ok) => setScriptReady(ok))
-    } else if (window.Razorpay) {
-      setScriptReady(true)
+    loadRazorpayScript()
+  }, [])
+
+  // Also save purchase to localStorage when successful
+  useEffect(() => {
+    if (state === 'success' && pdf && downloadToken) {
+      try {
+        const purchases = JSON.parse(localStorage.getItem('pdfwallah_purchases') || '{}')
+        purchases[pdf.id] = {
+          token: downloadToken,
+          title: pdf.title,
+          date: new Date().toISOString(),
+        }
+        localStorage.setItem('pdfwallah_purchases', JSON.stringify(purchases))
+      } catch {}
     }
-  }, [isOpen])
+  }, [state, downloadToken, pdf])
 
   const handlePayment = async () => {
     if (!pdf) return
@@ -89,7 +106,6 @@ export function PaymentModal({ isOpen, onClose, pdf }: PaymentModalProps) {
 
     try {
       // Step 1: Load Razorpay script + Create order IN PARALLEL
-      // This cuts the wait time from ~15s (sequential) to ~5s (parallel)
       const [scriptLoaded, orderRes] = await Promise.all([
         loadRazorpayScript(),
         fetch('/api/orders/create', {
@@ -113,7 +129,7 @@ export function PaymentModal({ isOpen, onClose, pdf }: PaymentModalProps) {
         throw new Error(orderData.error || 'Failed to create order')
       }
 
-      // Step 2: Open Razorpay checkout modal (opens instantly now!)
+      // Step 2: Open Razorpay checkout modal
       const paymentResult = await new Promise<{ razorpayPaymentId: string; razorpayOrderId: string; razorpaySignature: string }>(
         (resolve, reject) => {
           const options = {
@@ -132,12 +148,10 @@ export function PaymentModal({ isOpen, onClose, pdf }: PaymentModalProps) {
             theme: {
               color: '#059669', // emerald-600
             },
-            // Retry settings — allow user to retry if UPI app fails
             retry: {
               enabled: true,
               max_count: 3,
             },
-            // Timer to auto-close checkout if user doesn't act
             timeout: 600, // 10 minutes
             handler: function (response: any) {
               resolve({
@@ -156,7 +170,6 @@ export function PaymentModal({ isOpen, onClose, pdf }: PaymentModalProps) {
           const rzp = new window.Razorpay(options)
           rzp.on('payment.failed', function (response: any) {
             const desc = response.error.description || 'Payment failed'
-            // Provide more helpful error messages for common issues
             let userMessage = desc
             if (desc.includes('website does not match')) {
               userMessage = 'Payment is being set up. Please try again in a few minutes or use a different payment method (Card/Net Banking).'
@@ -196,6 +209,18 @@ export function PaymentModal({ isOpen, onClose, pdf }: PaymentModalProps) {
   }
 
   const handleClose = () => {
+    // 🛡️ CRITICAL: Don't allow closing during processing or success
+    // Razorpay's overlay dismissal was triggering Dialog's onOpenChange
+    // and wiping the success state before the user could download
+    if (state === 'processing') return
+
+    // On success, allow close but DON'T reset the state yet
+    // so the parent page can still access the download token
+    if (state === 'success') {
+      onClose()
+      return
+    }
+
     setState('form')
     setBuyerEmail('')
     setBuyerPhone('')
@@ -205,11 +230,34 @@ export function PaymentModal({ isOpen, onClose, pdf }: PaymentModalProps) {
     onClose()
   }
 
+  // Handle Dialog's onOpenChange — prevent unwanted closes
+  const handleOpenChange = (open: boolean) => {
+    if (!open) {
+      // If dialog is trying to close, only allow it if not processing
+      if (state === 'processing') return
+      handleClose()
+    }
+  }
+
   if (!pdf) return null
 
   return (
-    <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-md">
+    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
+      <DialogContent
+        className="sm:max-w-md"
+        // Prevent clicking outside to close during processing/success
+        onPointerDownOutside={(e) => {
+          if (state === 'processing' || state === 'success') {
+            e.preventDefault()
+          }
+        }}
+        // Prevent Escape key closing during processing
+        onEscapeKeyDown={(e) => {
+          if (state === 'processing') {
+            e.preventDefault()
+          }
+        }}
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <CreditCard className="w-5 h-5 text-emerald-600" />
@@ -296,6 +344,7 @@ export function PaymentModal({ isOpen, onClose, pdf }: PaymentModalProps) {
           <div className="flex flex-col items-center justify-center py-8 space-y-3">
             <Loader2 className="w-10 h-10 text-emerald-600 animate-spin" />
             <p className="text-sm text-muted-foreground">Opening Razorpay checkout...</p>
+            <p className="text-xs text-muted-foreground">If the checkout doesn't open, please wait a moment</p>
           </div>
         )}
 
@@ -306,7 +355,7 @@ export function PaymentModal({ isOpen, onClose, pdf }: PaymentModalProps) {
               <CheckCircle2 className="w-10 h-10 text-emerald-600" />
             </div>
             <div className="text-center space-y-1">
-              <p className="font-semibold">Payment Successful!</p>
+              <p className="font-semibold text-lg">Payment Successful!</p>
               <p className="text-sm text-muted-foreground">Your notes are ready to download</p>
               {buyerEmail && (
                 <p className="text-xs text-muted-foreground">Receipt sent to {buyerEmail}</p>
@@ -316,9 +365,9 @@ export function PaymentModal({ isOpen, onClose, pdf }: PaymentModalProps) {
               onClick={() => {
                 window.open(`/api/download?token=${downloadToken}`, '_blank')
               }}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+              className="bg-emerald-600 hover:bg-emerald-700 text-white h-12 text-base px-8"
             >
-              <Download className="w-4 h-4 mr-2" />
+              <Download className="w-5 h-5 mr-2" />
               Download PDF
             </Button>
             <p className="text-xs text-muted-foreground text-center">
