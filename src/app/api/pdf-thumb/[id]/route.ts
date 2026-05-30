@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { extractGoogleDriveFileId, getGoogleDriveThumbnailUrl } from '@/lib/google-drive';
+import { isSupabaseConfigured, getSupabaseAdmin, THUMBNAIL_BUCKET } from '@/lib/supabase';
 
-// GET /api/pdf-thumb/[id] - Proxy Google Drive thumbnail for a PDF
-// This avoids CORS issues and allows us to cache aggressively
+// GET /api/pdf-thumb/[id] - Serve thumbnail image for a PDF
+// Priority: 1) Custom thumbnail in Supabase Storage, 2) Google Drive auto thumbnail
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -20,6 +21,29 @@ export async function GET(
       return NextResponse.json({ error: 'PDF not found' }, { status: 404 });
     }
 
+    // === PRIORITY 1: Check if there's a custom thumbnail in Supabase Storage ===
+    // thumbnailPath will contain a Supabase public URL if a custom thumbnail was uploaded
+    if (pdf.thumbnailPath && pdf.thumbnailPath.includes('supabase.co') && pdf.thumbnailPath.includes('/storage/v1/object/public/')) {
+      try {
+        const thumbResponse = await fetch(pdf.thumbnailPath, {
+          redirect: 'follow',
+        });
+        if (thumbResponse.ok) {
+          const imageBuffer = await thumbResponse.arrayBuffer();
+          const contentType = thumbResponse.headers.get('content-type') || 'image/png';
+          return new NextResponse(imageBuffer, {
+            headers: {
+              'Content-Type': contentType,
+              'Cache-Control': 'public, max-age=86400, s-maxage=86400',
+            },
+          });
+        }
+      } catch (e) {
+        console.error('Failed to fetch custom thumbnail, falling back to Google Drive:', e);
+      }
+    }
+
+    // === PRIORITY 2: Try Google Drive auto thumbnail ===
     // Try to extract Google Drive file ID from available URL fields
     const fields = [
       pdf.thumbnailPath,

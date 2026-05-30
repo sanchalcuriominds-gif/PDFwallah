@@ -23,6 +23,7 @@ import {
   Plus,
   ChevronDown,
   ChevronRight,
+  Image as ImageIcon,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -1039,6 +1040,8 @@ function UploadTab({ onUploaded }: { onUploaded: () => void }) {
   const [noteTypes, setNoteTypes] = useState<NoteTypeData[]>([])
   const [previewFileUrl, setPreviewFileUrl] = useState('')
   const [fullFileUrl, setFullFileUrl] = useState('')
+  const [thumbnailPage, setThumbnailPage] = useState('1')
+  const [isRenderingThumb, setIsRenderingThumb] = useState(false)
   const [featured, setFeatured] = useState(false)
   const [published, setPublished] = useState(true)
 
@@ -1115,7 +1118,42 @@ function UploadTab({ onUploaded }: { onUploaded: () => void }) {
       const data = await res.json()
 
       if (res.ok) {
-        setUploadResult({ success: true, message: 'PDF uploaded successfully!' })
+        // If thumbnail page is > 1, render that page and upload as custom thumbnail
+        const thumbPage = parseInt(thumbnailPage) || 1
+        if (thumbPage > 1 && (fullFileUrl || previewFileUrl)) {
+          try {
+            setIsRenderingThumb(true)
+            setUploadResult({ success: true, message: 'PDF created! Rendering custom thumbnail...' })
+
+            const { renderPdfPageToBlob, getGoogleDriveDownloadUrl } = await import('@/lib/pdf-renderer')
+            const pdfUrl = getGoogleDriveDownloadUrl(fullFileUrl || previewFileUrl)
+            const blob = await renderPdfPageToBlob(pdfUrl, thumbPage, 2)
+
+            // Upload the thumbnail
+            const thumbFormData = new FormData()
+            thumbFormData.append('thumbnail', blob, 'thumbnail.png')
+            thumbFormData.append('pdfId', data.id)
+
+            const thumbRes = await fetch('/api/admin/upload-thumbnail', {
+              method: 'POST',
+              body: thumbFormData,
+            })
+
+            if (thumbRes.ok) {
+              setUploadResult({ success: true, message: 'PDF uploaded with custom thumbnail!' })
+            } else {
+              setUploadResult({ success: true, message: 'PDF uploaded! (Thumbnail page rendering failed, using default)' })
+            }
+          } catch (thumbError) {
+            console.error('Thumbnail rendering failed:', thumbError)
+            setUploadResult({ success: true, message: 'PDF uploaded! (Thumbnail page rendering failed, using default)' })
+          } finally {
+            setIsRenderingThumb(false)
+          }
+        } else {
+          setUploadResult({ success: true, message: 'PDF uploaded successfully!' })
+        }
+
         setTitle('')
         setDescription('')
         setPrice('')
@@ -1124,6 +1162,7 @@ function UploadTab({ onUploaded }: { onUploaded: () => void }) {
         setNoteTypeId('')
         setPreviewFileUrl('')
         setFullFileUrl('')
+        setThumbnailPage('1')
         setFeatured(false)
         setPublished(true)
         onUploaded()
@@ -1199,16 +1238,35 @@ function UploadTab({ onUploaded }: { onUploaded: () => void }) {
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="pageCount">Page Count</Label>
-              <Input
-                id="pageCount"
-                type="number"
-                value={pageCount}
-                onChange={(e) => setPageCount(e.target.value)}
-                placeholder="25"
-                min="0"
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="pageCount">Page Count</Label>
+                <Input
+                  id="pageCount"
+                  type="number"
+                  value={pageCount}
+                  onChange={(e) => setPageCount(e.target.value)}
+                  placeholder="25"
+                  min="0"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="thumbnailPage" className="flex items-center gap-1">
+                  <ImageIcon className="w-3.5 h-3.5" />
+                  Thumbnail Page
+                </Label>
+                <Input
+                  id="thumbnailPage"
+                  type="number"
+                  value={thumbnailPage}
+                  onChange={(e) => setThumbnailPage(e.target.value)}
+                  placeholder="1"
+                  min="1"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Which page to show as thumbnail (default: 1)
+                </p>
+              </div>
             </div>
 
             <Separator />
@@ -1366,12 +1424,17 @@ function UploadTab({ onUploaded }: { onUploaded: () => void }) {
             <Button
               type="submit"
               className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
-              disabled={isUploading}
+              disabled={isUploading || isRenderingThumb}
             >
               {isUploading ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                   Uploading...
+                </>
+              ) : isRenderingThumb ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Rendering thumbnail...
                 </>
               ) : (
                 <>
