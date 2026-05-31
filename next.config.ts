@@ -7,6 +7,7 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: true,
   },
   reactStrictMode: false,
+  serverExternalPackages: ['@napi-rs/canvas', 'canvas', 'pdfjs-dist'],
   images: {
     remotePatterns: [
       {

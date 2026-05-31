@@ -1118,20 +1118,20 @@ function UploadTab({ onUploaded }: { onUploaded: () => void }) {
       const data = await res.json()
 
       if (res.ok) {
-        // If thumbnail page is > 1, render that page and upload as custom thumbnail
+        // If thumbnail page is specified, render that page server-side as custom thumbnail
         const thumbPage = parseInt(thumbnailPage) || 1
-        if (thumbPage > 1 && (fullFileUrl || previewFileUrl)) {
+        const sourceUrl = fullFileUrl || previewFileUrl
+        if (thumbPage > 1 && sourceUrl) {
           try {
             setIsRenderingThumb(true)
-            setUploadResult({ success: true, message: 'PDF created! Rendering custom thumbnail...' })
+            setUploadResult({ success: true, message: 'PDF created! Rendering custom thumbnail (page ' + thumbPage + ')...' })
 
+            // Client-side rendering using PDF.js from CDN + our server-side proxy
             const { renderPdfPageToBlob } = await import('@/lib/pdf-renderer')
-            // Use our server-side proxy to avoid CORS issues with Google Drive
-            const sourceUrl = fullFileUrl || previewFileUrl
-            const pdfUrl = `/api/admin/proxy-pdf?url=${encodeURIComponent(sourceUrl)}`
-            const blob = await renderPdfPageToBlob(pdfUrl, thumbPage, 2)
+            const proxyUrl = `/api/admin/proxy-pdf?url=${encodeURIComponent(sourceUrl)}`
+            const blob = await renderPdfPageToBlob(proxyUrl, thumbPage, 2)
 
-            // Upload the thumbnail
+            // Upload the rendered thumbnail
             const thumbFormData = new FormData()
             thumbFormData.append('thumbnail', blob, 'thumbnail.png')
             thumbFormData.append('pdfId', data.id)
@@ -1141,10 +1141,11 @@ function UploadTab({ onUploaded }: { onUploaded: () => void }) {
               body: thumbFormData,
             })
 
-            if (thumbRes.ok) {
-              setUploadResult({ success: true, message: 'PDF uploaded with custom thumbnail!' })
+            const thumbData = await thumbRes.json()
+            if (thumbRes.ok && thumbData.success) {
+              setUploadResult({ success: true, message: 'PDF uploaded with custom thumbnail (page ' + thumbPage + ')!' })
             } else {
-              setUploadResult({ success: true, message: 'PDF uploaded! (Thumbnail page rendering failed, using default)' })
+              setUploadResult({ success: true, message: 'PDF uploaded! (Thumbnail upload failed: ' + (thumbData.error || 'Unknown error') + '. Default page 1 used.)' })
             }
           } catch (thumbError) {
             console.error('Thumbnail rendering failed:', thumbError)

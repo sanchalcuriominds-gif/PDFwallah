@@ -34,6 +34,7 @@ export async function GET(
           return new NextResponse(imageBuffer, {
             headers: {
               'Content-Type': contentType,
+              // Custom thumbnails are user-chosen pages - cache 1 day so updates are visible
               'Cache-Control': 'public, max-age=86400, s-maxage=86400',
             },
           });
