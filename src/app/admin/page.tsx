@@ -1125,8 +1125,10 @@ function UploadTab({ onUploaded }: { onUploaded: () => void }) {
             setIsRenderingThumb(true)
             setUploadResult({ success: true, message: 'PDF created! Rendering custom thumbnail...' })
 
-            const { renderPdfPageToBlob, getGoogleDriveDownloadUrl } = await import('@/lib/pdf-renderer')
-            const pdfUrl = getGoogleDriveDownloadUrl(fullFileUrl || previewFileUrl)
+            const { renderPdfPageToBlob } = await import('@/lib/pdf-renderer')
+            // Use our server-side proxy to avoid CORS issues with Google Drive
+            const sourceUrl = fullFileUrl || previewFileUrl
+            const pdfUrl = `/api/admin/proxy-pdf?url=${encodeURIComponent(sourceUrl)}`
             const blob = await renderPdfPageToBlob(pdfUrl, thumbPage, 2)
 
             // Upload the thumbnail
@@ -1146,7 +1148,8 @@ function UploadTab({ onUploaded }: { onUploaded: () => void }) {
             }
           } catch (thumbError) {
             console.error('Thumbnail rendering failed:', thumbError)
-            setUploadResult({ success: true, message: 'PDF uploaded! (Thumbnail page rendering failed, using default)' })
+            const errMsg = thumbError instanceof Error ? thumbError.message : 'Unknown error'
+            setUploadResult({ success: true, message: `PDF uploaded! (Thumbnail rendering failed: ${errMsg}. Default page 1 used.)` })
           } finally {
             setIsRenderingThumb(false)
           }
