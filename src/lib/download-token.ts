@@ -97,3 +97,54 @@ export async function invalidateDownloadToken(token: string): Promise<void> {
     // Token might not exist
   }
 }
+
+export async function findOrdersByEmailOrPhone(
+  email?: string,
+  phone?: string
+): Promise<Array<any>> {
+  if (!email && !phone) return [];
+
+  const admin = (await import('./supabase')).getSupabaseAdmin();
+  
+  let query = admin.from('Order').select('*, pdf: Pdf(title, price)');
+  
+  if (email && phone) {
+    query = query.or(`buyerEmail.ilike.%${email}%,buyerPhone.ilike.%${phone}%`);
+  } else if (email) {
+    query = query.ilike('buyerEmail', `%${email}%`);
+  } else if (phone) {
+    query = query.ilike('buyerPhone', `%${phone}%`);
+  }
+  
+  query = query.eq('status', 'paid').order('createdAt', { ascending: false });
+
+  const { data, error } = await query;
+  if (error) {
+    console.error('Error finding orders:', error);
+    return [];
+  }
+
+  return (data || []).map((o: any) => ({
+    id: o.id,
+    pdfTitle: o.pdf?.title || 'Unknown',
+    amount: o.amount,
+    downloadToken: o.downloadToken,
+    tokenExpiry: o.tokenExpiry,
+    createdAt: o.createdAt,
+  }));
+}
+
+export async function regenerateDownloadToken(orderId: string): Promise<string> {
+  const token = uuidv4();
+  const tokenExpiry = new Date(Date.now() + DOWNLOAD_LINK_DURATION_MINUTES * 60 * 1000);
+
+  await db.order.update({
+    where: { id: orderId },
+    data: {
+      downloadToken: token,
+      tokenExpiry: tokenExpiry.toISOString(),
+    }
+  });
+
+  return token;
+}

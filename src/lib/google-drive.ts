@@ -85,3 +85,20 @@ export function getPdfThumbnailSource(pdf: {
 
   return null
 }
+
+/**
+ * Check if a URL is a Google Drive URL
+ */
+export function isGoogleDriveUrl(url: string): boolean {
+  if (!url || typeof url !== 'string') return false
+  return url.includes('drive.google.com') || url.includes('docs.google.com')
+}
+
+/**
+ * Convert a Google Drive sharing URL to an embed URL for iframe preview
+ */
+export function getGoogleDriveEmbedUrl(url: string): string | null {
+  const fileId = extractGoogleDriveFileId(url)
+  if (!fileId) return null
+  return `https://drive.google.com/file/d/${fileId}/preview`
+}
