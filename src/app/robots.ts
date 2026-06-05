@@ -6,12 +6,7 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: '*',
         allow: '/',
-        disallow: ['/api/', '/admin'],
-      },
-      {
-        userAgent: 'Googlebot',
-        allow: '/',
-        disallow: ['/api/', '/admin'],
+        disallow: ['/api/', '/admin', '/recover'],
       },
     ],
     sitemap: 'https://pdfwallah.in/sitemap.xml',
