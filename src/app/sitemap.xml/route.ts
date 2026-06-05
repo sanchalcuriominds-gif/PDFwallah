@@ -147,3 +147,6 @@ ${urls.join('\n')}
     },
   })
 }
+
+// Force dynamic rendering — never cache as a static file
+export const dynamic = 'force-dynamic'
