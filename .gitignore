@@ -70,3 +70,12 @@ server.log
 
 # Mini services
 /mini-services/
+# Download directory (contains secrets)
+/download/
+
+# Agent context
+/agent-ctx/
+
+# Worklog
+worklog.md
+ADMIN_FEATURES.md
