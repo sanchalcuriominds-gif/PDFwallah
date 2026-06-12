@@ -5,9 +5,6 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: true,
   },
   reactStrictMode: false,
-  // Force webpack bundler instead of Turbopack (which crashes in production)
-  // @ts-ignore - bundler option not yet in types
-  bundler: "webpack",
   serverExternalPackages: ['@napi-rs/canvas', 'canvas', 'pdfjs-dist'],
   images: {
     remotePatterns: [
