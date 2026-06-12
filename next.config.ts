@@ -1,12 +1,13 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Don't use standalone output for Vercel deployment
-  // Vercel handles the build output automatically
   typescript: {
     ignoreBuildErrors: true,
   },
   reactStrictMode: false,
+  // Force webpack bundler instead of Turbopack (which crashes in production)
+  // @ts-ignore - bundler option not yet in types
+  bundler: "webpack",
   serverExternalPackages: ['@napi-rs/canvas', 'canvas', 'pdfjs-dist'],
   images: {
     remotePatterns: [
