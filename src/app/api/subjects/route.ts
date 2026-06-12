@@ -10,14 +10,21 @@ export async function GET(request: NextRequest) {
     
     const subjects = await db.subject.findMany({
       where,
-      include: {
-        class: true,
-        _count: { select: { chapters: true, pdfs: true } }
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        classId: true,
+        class: { select: { name: true, slug: true } },
+        _count: { select: { chapters: true, pdfs: true } },
       },
-      orderBy: { name: 'asc' }
+      orderBy: { name: 'asc' },
     });
     
-    return NextResponse.json(subjects);
+    // Cache for 30 seconds
+    const response = NextResponse.json(subjects);
+    response.headers.set('Cache-Control', 'public, s-maxage=30, stale-while-revalidate=60');
+    return response;
   } catch (error) {
     console.error('Error fetching subjects:', error);
     return NextResponse.json({ error: 'Failed to fetch subjects' }, { status: 500 });

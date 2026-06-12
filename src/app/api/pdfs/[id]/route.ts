@@ -11,11 +11,29 @@ export async function GET(
     
     const pdf = await db.pdf.findUnique({
       where: { id },
-      include: {
-        class: true,
-        subject: true,
-        chapter: true,
-        topic: true,
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        price: true,
+        mrp: true,
+        pageCount: true,
+        previewPageCount: true,
+        salesCount: true,
+        downloadCount: true,
+        featured: true,
+        published: true,
+        thumbnailPath: true,
+        previewFileUrl: true,
+        fullFileUrl: true,
+        pdfPath: true,
+        noteTypeId: true,
+        createdAt: true,
+        class: { select: { name: true, slug: true } },
+        subject: { select: { name: true, slug: true } },
+        chapter: { select: { name: true, slug: true } },
+        topic: { select: { name: true, slug: true } },
+        noteType: { select: { name: true, slug: true } },
       },
     });
 
@@ -30,7 +48,9 @@ export async function GET(
       hasFile: !!pdf.pdfPath,
     };
 
-    return NextResponse.json(safePdf);
+    const response = NextResponse.json(safePdf);
+    response.headers.set('Cache-Control', 'public, s-maxage=30, stale-while-revalidate=60');
+    return response;
   } catch (error: any) {
     console.error('Error fetching PDF:', error);
     return NextResponse.json({ error: 'Failed to fetch PDF' }, { status: 500 });

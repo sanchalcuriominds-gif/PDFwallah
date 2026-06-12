@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { validateAdminSession } from '@/lib/admin-auth';
+import { processNewPdf } from '@/lib/pdf-processor';
 
 /**
  * POST /api/admin/auto-upload
@@ -206,6 +207,9 @@ export async function POST(request: NextRequest) {
     }
 
     // === Create the PDF entry ===
+    const providedPageCount = parseInt(body.pageCount) || 0;
+    const providedFileSize = parseInt(body.fileSize) || 0;
+
     const pdf = await db.pdf.create({
       data: {
         title,
@@ -220,7 +224,8 @@ export async function POST(request: NextRequest) {
         fullFileUrl,
         previewFileUrl: body.previewFileUrl || null,
         thumbnailPath: body.thumbnailPath || null,
-        pageCount: parseInt(body.pageCount) || 0,
+        pageCount: providedPageCount,
+        fileSize: providedFileSize || null,
         featured: body.featured || false,
         published: body.published !== false, // default true
         pdfPath: `pdfs/${Date.now()}-${slug}.pdf`,
@@ -233,16 +238,58 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    console.log(`Auto-Upload: Created PDF "${title}" (${pdf.id})`);
+    console.log(`Auto-Upload: Created PDF "${title}" (${pdf.id}) with pageCount=${providedPageCount}`);
+
+    // === Server-Side PDF Processing ===
+    // Fix page count (if 0) and auto-generate thumbnail by downloading the PDF
+    // This runs AFTER creating the record so the upload response isn't blocked on success
+    let finalPageCount = providedPageCount;
+    let finalThumbnailPath: string | null = body.thumbnailPath || null;
+    let processingMessage = '';
+
+    try {
+      console.log(`Auto-Upload: Starting server-side PDF processing for ${pdf.id}...`);
+      const processed = await processNewPdf(fullFileUrl, pdf.id, providedPageCount);
+
+      const updates: Record<string, any> = {};
+
+      if (processed.pageCount > 0 && processed.pageCount !== providedPageCount) {
+        updates.pageCount = processed.pageCount;
+        finalPageCount = processed.pageCount;
+        console.log(`Auto-Upload: Updated page count from ${providedPageCount} to ${processed.pageCount}`);
+      }
+
+      if (processed.thumbnailPath) {
+        updates.thumbnailPath = processed.thumbnailPath;
+        finalThumbnailPath = processed.thumbnailPath;
+        console.log(`Auto-Upload: Cached thumbnail to Supabase`);
+      }
+
+      // Update the PDF record if we have corrections
+      if (Object.keys(updates).length > 0) {
+        await db.pdf.update({
+          where: { id: pdf.id },
+          data: updates,
+        });
+        processingMessage = `Processed: pageCount=${finalPageCount}, thumbnail=${finalThumbnailPath ? 'cached' : 'fallback'}`;
+      }
+    } catch (processingError) {
+      // Don't fail the upload if processing fails — the PDF is still created
+      console.error(`Auto-Upload: PDF processing failed (non-fatal):`, processingError);
+      processingMessage = 'Processing failed, using provided values';
+    }
 
     return NextResponse.json({
       success: true,
       message: 'PDF uploaded and published successfully',
+      processing: processingMessage || undefined,
       pdf: {
         id: pdf.id,
         title: pdf.title,
         slug,
         published: pdf.published,
+        pageCount: finalPageCount,
+        thumbnailCached: !!finalThumbnailPath,
         class: pdf.class?.name,
         subject: pdf.subject?.name,
         chapter: pdf.chapter?.name,

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { validateAdminSession } from '@/lib/admin-auth';
 
-// GET /api/admin/pdfs - List all PDFs for admin
+// GET /api/admin/pdfs - List PDFs for admin with server-side filtering & pagination
 export async function GET(request: NextRequest) {
   try {
     const token = request.cookies.get('admin_token')?.value;
@@ -10,18 +10,65 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const pdfs = await db.pdf.findMany({
-      include: {
-        class: true,
-        subject: true,
-        chapter: true,
-        topic: true,
-        _count: { select: { orders: true } },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+    const { searchParams } = new URL(request.url);
+    const classId = searchParams.get('classId');
+    const subjectId = searchParams.get('subjectId');
+    const search = searchParams.get('search') || '';
+    const page = Math.max(1, parseInt(searchParams.get('page') || '1'));
+    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '20')));
 
-    return NextResponse.json(pdfs);
+    const where: Record<string, unknown> = {};
+    if (classId) where.classId = classId;
+    if (subjectId) where.subjectId = subjectId;
+    if (search) {
+      where.title = { contains: search };
+    }
+
+    const [pdfs, total] = await Promise.all([
+      db.pdf.findMany({
+        where,
+        select: {
+          id: true,
+          title: true,
+          description: true,
+          price: true,
+          mrp: true,
+          pageCount: true,
+          previewPageCount: true,
+          salesCount: true,
+          downloadCount: true,
+          featured: true,
+          published: true,
+          thumbnailPath: true,
+          previewFileUrl: true,
+          fullFileUrl: true,
+          pdfPath: true,
+          fileSize: true,
+          noteTypeId: true,
+          classId: true,
+          subjectId: true,
+          chapterId: true,
+          topicId: true,
+          createdAt: true,
+          updatedAt: true,
+          class: { select: { id: true, name: true, slug: true } },
+          subject: { select: { id: true, name: true, slug: true } },
+          chapter: { select: { id: true, name: true, slug: true } },
+          topic: { select: { id: true, name: true, slug: true } },
+          noteType: { select: { id: true, name: true, slug: true } },
+          _count: { select: { orders: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      db.pdf.count({ where }),
+    ]);
+
+    return NextResponse.json({
+      pdfs,
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    });
   } catch (error) {
     console.error('Error fetching admin PDFs:', error);
     return NextResponse.json({ error: 'Failed to fetch PDFs' }, { status: 500 });
@@ -62,11 +109,22 @@ export async function POST(request: NextRequest) {
         fullFileUrl: fullFileUrl || null,
         pageCount: parseInt(pageCount) || 0,
       },
-      include: {
-        class: true,
-        subject: true,
-        chapter: true,
-        topic: true,
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        price: true,
+        mrp: true,
+        pageCount: true,
+        featured: true,
+        published: true,
+        thumbnailPath: true,
+        previewFileUrl: true,
+        fullFileUrl: true,
+        class: { select: { name: true, slug: true } },
+        subject: { select: { name: true, slug: true } },
+        chapter: { select: { name: true, slug: true } },
+        topic: { select: { name: true, slug: true } },
       },
     });
 

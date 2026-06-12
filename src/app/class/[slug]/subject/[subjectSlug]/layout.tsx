@@ -11,18 +11,16 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug, subjectSlug } = await params
 
   try {
-    const classes = await db.class.findMany()
-    const currentClass = classes.find((c: any) => c.slug === slug)
-
+    const currentClass = await db.class.findUnique({ where: { slug } })
     if (!currentClass) return { title: 'Subject Notes PDF' }
 
-    const subjects = await db.subject.findMany({ where: { classId: (currentClass as any).id } })
-    const currentSubject = subjects.find((s: any) => s.slug === subjectSlug)
-
+    const currentSubject = await db.subject.findFirst({
+      where: { slug: subjectSlug, classId: currentClass.id },
+    })
     if (!currentSubject) return { title: 'Subject Notes PDF' }
 
-    const className = (currentClass as any).name
-    const subjectName = (currentSubject as any).name
+    const className = currentClass.name
+    const subjectName = currentSubject.name
     const seoTitle = `${className} ${subjectName} Notes PDF — Chapterwise Download`
     const seoDescription = `Download ${className} ${subjectName} Notes PDF. Chapterwise handwritten notes, PYQs, formula sheets & revision material. Instant download, no login.`
 

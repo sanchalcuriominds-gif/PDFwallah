@@ -13,7 +13,15 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   try {
     const pdf = await db.pdf.findUnique({
       where: { id },
-      include: { class: true, subject: true, chapter: true, topic: true, noteType: true },
+      select: {
+        title: true,
+        pageCount: true,
+        class: { select: { name: true } },
+        subject: { select: { name: true } },
+        chapter: { select: { name: true } },
+        topic: { select: { name: true } },
+        noteType: { select: { name: true } },
+      },
     })
 
     if (!pdf) {
@@ -23,7 +31,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       }
     }
 
-    const noteTypeLabel = (pdf as any).noteType?.name || 'Notes'
+    const noteTypeLabel = pdf.noteType?.name || 'Notes'
     const seoTitle = `${pdf.title} ${noteTypeLabel} PDF — ${pdf.class.name} ${pdf.subject.name}`
     const seoDescription = `Download ${pdf.title} ${noteTypeLabel} PDF for ${pdf.class.name} ${pdf.subject.name}. ${pdf.pageCount} pages, instant download, no login required. ${pdf.chapter.name} - ${pdf.topic.name}.`
 

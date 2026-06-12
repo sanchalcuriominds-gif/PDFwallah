@@ -3,15 +3,16 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model Class {
   id        String    @id @default(cuid())
   name      String    @unique
   slug      String    @unique
-  type      String    @default("school") // "school" or "competitive"
+  type      String    @default("school")
   sortOrder Int       @default(0)
   subjects  Subject[]
   pdfs      Pdf[]
@@ -65,17 +66,15 @@ model Pdf {
   title           String
   description     String    @default("")
   price           Float     @default(0)
+  mrp             Float?
   thumbnailPath   String?
 
-  // Preview file - shown to users before purchase (lighter/shorter version)
-  previewFilePath String?   // Storage path for preview PDF (if uploaded)
-  previewFileUrl  String?   // Google Drive or external URL for preview PDF
+  previewFilePath String?
+  previewFileUrl  String?
 
-  // Full file - only downloadable after payment
-  fullFilePath    String?   // Storage path for full PDF (if uploaded)
-  fullFileUrl     String?   // Google Drive or external URL for full PDF
+  fullFilePath    String?
+  fullFileUrl     String?
 
-  // Legacy compatibility
   pdfPath         String    @default("pdfs/placeholder.pdf")
 
   pageCount       Int       @default(0)
@@ -84,7 +83,8 @@ model Pdf {
   published       Boolean   @default(true)
   downloadCount   Int       @default(0)
   salesCount      Int       @default(0)
-  fileSize        Int       @default(0)  // Full file size in bytes
+  fileSize        Int       @default(0)
+  noteTypeId      String?
 
   classId         String
   subjectId       String
@@ -94,9 +94,18 @@ model Pdf {
   subject         Subject   @relation(fields: [subjectId], references: [id])
   chapter         Chapter   @relation(fields: [chapterId], references: [id])
   topic           Topic     @relation(fields: [topicId], references: [id])
+  noteType        NoteType? @relation(fields: [noteTypeId], references: [id])
   orders          Order[]
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
+
+  @@index([classId, published])
+  @@index([subjectId, published])
+  @@index([chapterId])
+  @@index([topicId])
+  @@index([published, createdAt])
+  @@index([published, salesCount])
+  @@index([featured])
 }
 
 model Order {
@@ -123,4 +132,13 @@ model AdminSession {
   token     String   @unique
   expiresAt DateTime
   createdAt DateTime @default(now())
+}
+
+model NoteType {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  slug      String   @unique
+  pdfs      Pdf[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

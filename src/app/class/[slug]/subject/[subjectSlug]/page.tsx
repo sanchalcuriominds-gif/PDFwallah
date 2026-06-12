@@ -1,161 +1,85 @@
-'use client'
-
-import { useState, useEffect } from 'react'
-import { useParams } from 'next/navigation'
+import { db } from '@/lib/db'
+import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { motion } from 'framer-motion'
-import { BookOpen, FileText, ChevronRight, ArrowLeft } from 'lucide-react'
+import { BookOpen, FileText, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { PdfGrid } from '@/components/pdf/pdf-grid'
-import { PdfCardSkeleton } from '@/components/pdf/pdf-card-skeleton'
 import { Breadcrumbs } from '@/components/layout/breadcrumbs'
 
-interface SubjectData {
-  id: string
-  name: string
-  slug: string
-  class: { id: string; name: string; slug: string }
+type Props = {
+  params: Promise<{ slug: string; subjectSlug: string }>
 }
 
-interface ChapterData {
-  id: string
-  name: string
-  slug: string
-  subject: { name: string; slug: string; class: { name: string; slug: string } }
-  _count: { topics: number; pdfs: number }
-}
+export default async function SubjectPage({ params }: Props) {
+  const { slug, subjectSlug } = await params
 
-interface PdfData {
-  id: string
-  title: string
-  description: string
-  price: number
-  pageCount: number
-  salesCount: number
-  downloadCount: number
-  featured: boolean
-  thumbnailPath: string | null
-  class: { name: string; slug: string }
-  subject: { name: string; slug: string }
-  chapter: { name: string; slug: string }
-  topic: { name: string; slug: string }
-}
+  // Direct DB queries — zero API round-trips!
+  const currentClass = await db.class.findUnique({ where: { slug } })
+  if (!currentClass) notFound()
 
-export default function SubjectPage() {
-  const params = useParams()
-  const classSlug = params.slug as string
-  const subjectSlug = params.subjectSlug as string
-  const [subject, setSubject] = useState<SubjectData | null>(null)
-  const [chapters, setChapters] = useState<ChapterData[]>([])
-  const [pdfs, setPdfs] = useState<PdfData[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const currentSubject = await db.subject.findFirst({
+    where: { slug: subjectSlug, classId: currentClass.id },
+  })
+  if (!currentSubject) notFound()
 
-  useEffect(() => {
-    async function fetchData() {
-      try {
-        const [subjectsRes, chaptersRes, pdfsRes] = await Promise.all([
-          fetch('/api/classes'),
-          fetch(`/api/chapters?_=${Date.now()}`),
-          fetch(`/api/pdfs?limit=8&_=${Date.now()}`),
-        ])
-
-        const classesData = await subjectsRes.json()
-        const allChapters: ChapterData[] = await chaptersRes.json()
-        const pdfsData = await pdfsRes.json()
-
-        // Find the current class
-        const currentClass = classesData.find((c: { slug: string }) => c.slug === classSlug)
-        if (!currentClass) { setIsLoading(false); return }
-
-        // Get subjects for this class
-        const subjectsRes2 = await fetch(`/api/subjects?classId=${currentClass.id}`)
-        const allSubjects: SubjectData[] = await subjectsRes2.json()
-        const currentSubject = allSubjects.find((s: SubjectData) => s.slug === subjectSlug)
-        setSubject(currentSubject || null)
-
-        if (currentSubject) {
-          setChapters(allChapters.filter((ch) => ch.subject.slug === subjectSlug && ch.subject.class.slug === classSlug))
-          setPdfs(
-            (pdfsData.pdfs || []).filter(
-              (p: PdfData) => p.class.slug === classSlug && p.subject.slug === subjectSlug
-            )
-          )
-        }
-      } catch (error) {
-        console.error('Error fetching subject data:', error)
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    fetchData()
-  }, [classSlug, subjectSlug])
-
-  if (isLoading) {
-    return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-        <div className="flex items-center gap-2">
-          <div className="h-4 w-10 bg-muted rounded animate-pulse" />
-          <div className="h-4 w-4 bg-muted rounded-full animate-pulse" />
-          <div className="h-4 w-16 bg-muted rounded animate-pulse" />
-          <div className="h-4 w-4 bg-muted rounded-full animate-pulse" />
-          <div className="h-4 w-14 bg-muted rounded animate-pulse" />
-        </div>
-        <div className="h-8 w-40 bg-muted rounded animate-pulse" />
-        <div className="h-4 w-56 bg-muted rounded animate-pulse" />
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-6">
-          {[0, 1, 2, 3].map((i) => (
-            <Card key={i}>
-              <CardContent className="p-4 space-y-2">
-                <div className="h-4 w-3/4 bg-muted rounded animate-pulse" />
-                <div className="h-3 w-1/2 bg-muted rounded animate-pulse" />
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mt-8">
-          {[0, 1, 2, 3].map((i) => (
-            <PdfCardSkeleton key={i} />
-          ))}
-        </div>
-      </div>
-    )
-  }
-
-  if (!subject) {
-    return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 text-center">
-        <h1 className="text-2xl font-bold">Subject not found</h1>
-        <Link href="/">
-          <Button variant="outline" className="mt-4 gap-2">
-            <ArrowLeft className="w-4 h-4" /> Go Home
-          </Button>
-        </Link>
-      </div>
-    )
-  }
+  const [chapters, pdfs] = await Promise.all([
+    db.chapter.findMany({
+      where: { subjectId: currentSubject.id },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        subject: {
+          select: {
+            name: true,
+            slug: true,
+            class: { select: { name: true, slug: true } },
+          },
+        },
+        _count: { select: { topics: true, pdfs: true } },
+      },
+      orderBy: { name: 'asc' },
+    }),
+    db.pdf.findMany({
+      where: { subjectId: currentSubject.id, published: true },
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        price: true,
+        pageCount: true,
+        salesCount: true,
+        downloadCount: true,
+        featured: true,
+        thumbnailPath: true,
+        class: { select: { name: true, slug: true } },
+        subject: { select: { name: true, slug: true } },
+        chapter: { select: { name: true, slug: true } },
+        topic: { select: { name: true, slug: true } },
+        noteType: { select: { name: true, slug: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 8,
+    }),
+  ])
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
       <Breadcrumbs
         items={[
-          { label: subject.class.name, href: `/class/${classSlug}` },
-          { label: subject.name },
+          { label: currentClass.name, href: `/class/${slug}` },
+          { label: currentSubject.name },
         ]}
       />
 
       {/* Header */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
-      >
-        <h1 className="text-3xl font-bold">{subject.name}</h1>
+      <div className="animate-fade-in-up">
+        <h1 className="text-3xl font-bold">{currentSubject.name}</h1>
         <p className="text-muted-foreground mt-1">
-          {subject.class.name} &middot; {subject.name}
+          {currentClass.name} &middot; {currentSubject.name}
         </p>
-      </motion.div>
+      </div>
 
       {/* Chapters */}
       {chapters.length > 0 && (
@@ -166,13 +90,12 @@ export default function SubjectPage() {
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {chapters.map((chapter, index) => (
-              <motion.div
+              <div
                 key={chapter.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3, delay: index * 0.05 }}
+                className="animate-fade-in-up"
+                style={{ animationDelay: `${index * 50}ms`, animationFillMode: 'both' }}
               >
-                <Link href={`/class/${classSlug}/subject/${subjectSlug}/chapter/${chapter.slug}`}>
+                <Link href={`/class/${slug}/subject/${subjectSlug}/chapter/${chapter.slug}`}>
                   <Card className="group cursor-pointer hover:border-emerald-200 dark:hover:border-emerald-800 transition-colors">
                     <CardContent className="p-4 space-y-2">
                       <div className="flex items-start justify-between">
@@ -194,7 +117,7 @@ export default function SubjectPage() {
                     </CardContent>
                   </Card>
                 </Link>
-              </motion.div>
+              </div>
             ))}
           </div>
         </section>

@@ -1,44 +1,14 @@
-'use client'
-
-import { useState, useEffect } from 'react'
-import { useParams } from 'next/navigation'
+import { db } from '@/lib/db'
+import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { motion } from 'framer-motion'
-import { BookOpen, FileText, ArrowLeft } from 'lucide-react'
+import { BookOpen, FileText } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { PdfGrid } from '@/components/pdf/pdf-grid'
-import { PdfCardSkeleton } from '@/components/pdf/pdf-card-skeleton'
 import { Breadcrumbs } from '@/components/layout/breadcrumbs'
 
-interface SubjectData {
-  id: string
-  name: string
-  slug: string
-  class: { name: string; slug: string }
-  _count: { chapters: number; pdfs: number }
-}
-
-interface PdfData {
-  id: string
-  title: string
-  description: string
-  price: number
-  pageCount: number
-  salesCount: number
-  downloadCount: number
-  featured: boolean
-  thumbnailPath: string | null
-  class: { name: string; slug: string }
-  subject: { name: string; slug: string }
-  chapter: { name: string; slug: string }
-  topic: { name: string; slug: string }
-}
-
-interface ClassData {
-  id: string
-  name: string
-  slug: string
+type Props = {
+  params: Promise<{ slug: string }>
 }
 
 const subjectGradients = [
@@ -49,109 +19,64 @@ const subjectGradients = [
   'from-emerald-500 to-green-600',
 ]
 
-export default function ClassPage() {
-  const params = useParams()
-  const slug = params.slug as string
-  const [classData, setClassData] = useState<ClassData | null>(null)
-  const [subjects, setSubjects] = useState<SubjectData[]>([])
-  const [pdfs, setPdfs] = useState<PdfData[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+export default async function ClassPage({ params }: Props) {
+  const { slug } = await params
 
-  useEffect(() => {
-    async function fetchData() {
-      try {
-        const [classesRes, subjectsRes, pdfsRes] = await Promise.all([
-          fetch('/api/classes'),
-          fetch(`/api/subjects?classId=&_=${Date.now()}`),
-          fetch(`/api/pdfs?limit=8&_=${Date.now()}`),
-        ])
+  // Direct DB queries — zero API round-trips!
+  const currentClass = await db.class.findUnique({ where: { slug } })
+  if (!currentClass) notFound()
 
-        const classesData: ClassData[] = await classesRes.json()
-        const allSubjects: SubjectData[] = await subjectsRes.json()
-        const pdfsData = await pdfsRes.json()
-
-        const currentClass = classesData.find((c) => c.slug === slug)
-        setClassData(currentClass || null)
-
-        if (currentClass) {
-          setSubjects(allSubjects.filter((s) => s.class.slug === slug))
-          setPdfs((pdfsData.pdfs || []).filter(
-            (p: PdfData) => p.class.slug === slug
-          ))
-        }
-      } catch (error) {
-        console.error('Error fetching class data:', error)
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    fetchData()
-  }, [slug])
-
-  if (isLoading) {
-    return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-        <div className="flex items-center gap-2">
-          <div className="h-4 w-10 bg-muted rounded animate-pulse" />
-          <div className="h-4 w-4 bg-muted rounded-full animate-pulse" />
-          <div className="h-4 w-16 bg-muted rounded animate-pulse" />
-        </div>
-        <div className="h-8 w-32 bg-muted rounded animate-pulse" />
-        <div className="h-4 w-48 bg-muted rounded animate-pulse" />
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-6">
-          {[0, 1, 2, 3, 4, 5].map((i) => (
-            <Card key={i} className="overflow-hidden">
-              <div className="h-24 bg-muted animate-pulse" />
-              <CardContent className="p-4 space-y-2">
-                <div className="h-4 w-20 bg-muted rounded animate-pulse" />
-                <div className="h-3 w-28 bg-muted rounded animate-pulse" />
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mt-8">
-          {[0, 1, 2, 3].map((i) => (
-            <PdfCardSkeleton key={i} />
-          ))}
-        </div>
-      </div>
-    )
-  }
-
-  if (!classData) {
-    return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 text-center">
-        <h1 className="text-2xl font-bold">Class not found</h1>
-        <Link href="/">
-          <Button variant="outline" className="mt-4 gap-2">
-            <ArrowLeft className="w-4 h-4" /> Go Home
-          </Button>
-        </Link>
-      </div>
-    )
-  }
+  const [subjects, pdfs] = await Promise.all([
+    db.subject.findMany({
+      where: { classId: currentClass.id },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        class: { select: { name: true, slug: true } },
+        _count: { select: { chapters: true, pdfs: true } },
+      },
+      orderBy: { name: 'asc' },
+    }),
+    db.pdf.findMany({
+      where: { classId: currentClass.id, published: true },
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        price: true,
+        pageCount: true,
+        salesCount: true,
+        downloadCount: true,
+        featured: true,
+        thumbnailPath: true,
+        class: { select: { name: true, slug: true } },
+        subject: { select: { name: true, slug: true } },
+        chapter: { select: { name: true, slug: true } },
+        topic: { select: { name: true, slug: true } },
+        noteType: { select: { name: true, slug: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 8,
+    }),
+  ])
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
       <Breadcrumbs
         items={[
           { label: 'School Notes', href: '/school' },
-          { label: classData.name },
+          { label: currentClass.name },
         ]}
       />
 
       {/* Header */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
-      >
-        <h1 className="text-3xl font-bold">{classData.name}</h1>
+      <div className="animate-fade-in-up">
+        <h1 className="text-3xl font-bold">{currentClass.name}</h1>
         <p className="text-muted-foreground mt-1">
-          Browse subjects and notes for {classData.name}
+          Browse subjects and notes for {currentClass.name}
         </p>
-      </motion.div>
+      </div>
 
       {/* Subjects Grid */}
       {subjects.length > 0 && (
@@ -162,11 +87,10 @@ export default function ClassPage() {
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {subjects.map((subject, index) => (
-              <motion.div
+              <div
                 key={subject.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3, delay: index * 0.05 }}
+                className="animate-fade-in-up"
+                style={{ animationDelay: `${index * 50}ms`, animationFillMode: 'both' }}
               >
                 <Link href={`/class/${slug}/subject/${subject.slug}`}>
                   <Card className="overflow-hidden group cursor-pointer hover:border-emerald-200 dark:hover:border-emerald-800 transition-colors">
@@ -190,7 +114,7 @@ export default function ClassPage() {
                     </CardContent>
                   </Card>
                 </Link>
-              </motion.div>
+              </div>
             ))}
           </div>
         </section>

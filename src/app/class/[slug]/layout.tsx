@@ -11,14 +11,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params
 
   try {
-    const classes = await db.class.findMany()
-    const currentClass = classes.find((c: any) => c.slug === slug)
+    const currentClass = await db.class.findUnique({ where: { slug } })
 
     if (!currentClass) {
       return { title: 'Class Not Found' }
     }
 
-    const className = (currentClass as any).name
+    const className = currentClass.name
     const seoTitle = `${className} Notes PDF Download — All Subjects`
     const seoDescription = `Download ${className} Notes PDF for all subjects. Handwritten notes, PYQs, formula sheets & revision material. Instant download, no login required.`
 

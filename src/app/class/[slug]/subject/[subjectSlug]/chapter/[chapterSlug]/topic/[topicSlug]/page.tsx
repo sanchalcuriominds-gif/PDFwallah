@@ -1,145 +1,77 @@
-'use client'
-
-import { useState, useEffect } from 'react'
-import { useParams } from 'next/navigation'
+import { db } from '@/lib/db'
+import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { motion } from 'framer-motion'
-import { FileText, ArrowLeft } from 'lucide-react'
+import { FileText } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { PdfGrid } from '@/components/pdf/pdf-grid'
-import { PdfCardSkeleton } from '@/components/pdf/pdf-card-skeleton'
 import { Breadcrumbs } from '@/components/layout/breadcrumbs'
 
-interface PdfData {
-  id: string
-  title: string
-  description: string
-  price: number
-  pageCount: number
-  salesCount: number
-  downloadCount: number
-  featured: boolean
-  thumbnailPath: string | null
-  class: { name: string; slug: string }
-  subject: { name: string; slug: string }
-  chapter: { name: string; slug: string }
-  topic: { name: string; slug: string }
+type Props = {
+  params: Promise<{ slug: string; subjectSlug: string; chapterSlug: string; topicSlug: string }>
 }
 
-interface TopicInfo {
-  name: string
-  chapter: { name: string; slug: string; subject: { name: string; slug: string; class: { name: string; slug: string } } }
-}
+export default async function TopicPage({ params }: Props) {
+  const { slug, subjectSlug, chapterSlug, topicSlug } = await params
 
-export default function TopicPage() {
-  const params = useParams()
-  const classSlug = params.slug as string
-  const subjectSlug = params.subjectSlug as string
-  const chapterSlug = params.chapterSlug as string
-  const topicSlug = params.topicSlug as string
-  const [topicInfo, setTopicInfo] = useState<TopicInfo | null>(null)
-  const [pdfs, setPdfs] = useState<PdfData[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  // Direct DB queries — zero API round-trips!
+  const currentClass = await db.class.findUnique({ where: { slug } })
+  if (!currentClass) notFound()
 
-  useEffect(() => {
-    async function fetchData() {
-      try {
-        const [topicsRes, pdfsRes] = await Promise.all([
-          fetch(`/api/topics?_=${Date.now()}`),
-          fetch(`/api/pdfs?limit=20&_=${Date.now()}`),
-        ])
+  const currentSubject = await db.subject.findFirst({
+    where: { slug: subjectSlug, classId: currentClass.id },
+  })
+  if (!currentSubject) notFound()
 
-        const allTopics = await topicsRes.json()
-        const pdfsData = await pdfsRes.json()
+  const currentChapter = await db.chapter.findFirst({
+    where: { slug: chapterSlug, subjectId: currentSubject.id },
+  })
+  if (!currentChapter) notFound()
 
-        const currentTopic = allTopics.find(
-          (t: TopicInfo & { slug: string }) =>
-            t.slug === topicSlug &&
-            t.chapter.slug === chapterSlug &&
-            t.chapter.subject.slug === subjectSlug &&
-            t.chapter.subject.class.slug === classSlug
-        )
-        setTopicInfo(currentTopic || null)
+  const currentTopic = await db.topic.findFirst({
+    where: { slug: topicSlug, chapterId: currentChapter.id },
+  })
+  if (!currentTopic) notFound()
 
-        setPdfs(
-          (pdfsData.pdfs || []).filter(
-            (p: PdfData) =>
-              p.class.slug === classSlug &&
-              p.subject.slug === subjectSlug &&
-              p.chapter.slug === chapterSlug &&
-              p.topic.slug === topicSlug
-          )
-        )
-      } catch (error) {
-        console.error('Error fetching topic data:', error)
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    fetchData()
-  }, [classSlug, subjectSlug, chapterSlug, topicSlug])
-
-  if (isLoading) {
-    return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-        <div className="flex items-center gap-2">
-          <div className="h-4 w-10 bg-muted rounded animate-pulse" />
-          <div className="h-4 w-4 bg-muted rounded-full animate-pulse" />
-          <div className="h-4 w-16 bg-muted rounded animate-pulse" />
-          <div className="h-4 w-4 bg-muted rounded-full animate-pulse" />
-          <div className="h-4 w-14 bg-muted rounded animate-pulse" />
-          <div className="h-4 w-4 bg-muted rounded-full animate-pulse" />
-          <div className="h-4 w-20 bg-muted rounded animate-pulse" />
-          <div className="h-4 w-4 bg-muted rounded-full animate-pulse" />
-          <div className="h-4 w-16 bg-muted rounded animate-pulse" />
-        </div>
-        <div className="h-8 w-40 bg-muted rounded animate-pulse" />
-        <div className="h-4 w-64 bg-muted rounded animate-pulse" />
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mt-8">
-          {[0, 1, 2, 3].map((i) => (
-            <PdfCardSkeleton key={i} />
-          ))}
-        </div>
-      </div>
-    )
-  }
-
-  if (!topicInfo) {
-    return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 text-center">
-        <h1 className="text-2xl font-bold">Topic not found</h1>
-        <Link href="/">
-          <Button variant="outline" className="mt-4 gap-2">
-            <ArrowLeft className="w-4 h-4" /> Go Home
-          </Button>
-        </Link>
-      </div>
-    )
-  }
+  const pdfs = await db.pdf.findMany({
+    where: { topicId: currentTopic.id, published: true },
+    select: {
+      id: true,
+      title: true,
+      description: true,
+      price: true,
+      pageCount: true,
+      salesCount: true,
+      downloadCount: true,
+      featured: true,
+      thumbnailPath: true,
+      class: { select: { name: true, slug: true } },
+      subject: { select: { name: true, slug: true } },
+      chapter: { select: { name: true, slug: true } },
+      topic: { select: { name: true, slug: true } },
+      noteType: { select: { name: true, slug: true } },
+    },
+    orderBy: { createdAt: 'desc' },
+    take: 20,
+  })
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
       <Breadcrumbs
         items={[
-          { label: topicInfo.chapter.subject.class.name, href: `/class/${classSlug}` },
-          { label: topicInfo.chapter.subject.name, href: `/class/${classSlug}/subject/${subjectSlug}` },
-          { label: topicInfo.chapter.name, href: `/class/${classSlug}/subject/${subjectSlug}/chapter/${chapterSlug}` },
-          { label: topicInfo.name },
+          { label: currentClass.name, href: `/class/${slug}` },
+          { label: currentSubject.name, href: `/class/${slug}/subject/${subjectSlug}` },
+          { label: currentChapter.name, href: `/class/${slug}/subject/${subjectSlug}/chapter/${chapterSlug}` },
+          { label: currentTopic.name },
         ]}
       />
 
       {/* Header */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
-      >
-        <h1 className="text-3xl font-bold">{topicInfo.name}</h1>
+      <div className="animate-fade-in-up">
+        <h1 className="text-3xl font-bold">{currentTopic.name}</h1>
         <p className="text-muted-foreground mt-1">
-          {topicInfo.chapter.subject.class.name} &middot; {topicInfo.chapter.subject.name} &middot; {topicInfo.chapter.name}
+          {currentClass.name} &middot; {currentSubject.name} &middot; {currentChapter.name}
         </p>
-      </motion.div>
+      </div>
 
       {/* PDFs */}
       {pdfs.length > 0 ? (

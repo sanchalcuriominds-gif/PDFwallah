@@ -11,11 +11,19 @@ export async function GET(request: NextRequest) {
     const classes = await db.class.findMany({
       where,
       orderBy: { sortOrder: 'asc' },
-      include: {
-        _count: { select: { subjects: true, pdfs: true } }
-      }
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        type: true,
+        sortOrder: true,
+        _count: { select: { subjects: true, pdfs: true } },
+      },
     });
-    return NextResponse.json(classes);
+    // Cache for 30 seconds
+    const response = NextResponse.json(classes);
+    response.headers.set('Cache-Control', 'public, s-maxage=30, stale-while-revalidate=60');
+    return response;
   } catch (error: any) {
     console.error('Error fetching classes:', error);
     // Return more details for debugging

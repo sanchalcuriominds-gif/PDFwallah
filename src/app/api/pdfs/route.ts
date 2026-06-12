@@ -28,8 +28,9 @@ export async function GET(request: NextRequest) {
     if (classType) {
       const matchingClasses = await db.class.findMany({
         where: { type: classType },
+        select: { id: true },
       });
-      classIds = matchingClasses.map((c: any) => c.id);
+      classIds = matchingClasses.map((c) => c.id);
       if (classIds.length === 0) {
         // No classes of this type, return empty result
         return NextResponse.json({
@@ -60,11 +61,25 @@ export async function GET(request: NextRequest) {
     const [pdfs, total] = await Promise.all([
       db.pdf.findMany({
         where,
-        include: {
-          class: true,
-          subject: true,
-          chapter: true,
-          topic: true,
+        select: {
+          id: true,
+          title: true,
+          description: true,
+          price: true,
+          mrp: true,
+          pageCount: true,
+          salesCount: true,
+          downloadCount: true,
+          featured: true,
+          published: true,
+          thumbnailPath: true,
+          noteTypeId: true,
+          createdAt: true,
+          class: { select: { name: true, slug: true } },
+          subject: { select: { name: true, slug: true } },
+          chapter: { select: { name: true, slug: true } },
+          topic: { select: { name: true, slug: true } },
+          noteType: { select: { name: true, slug: true } },
         },
         orderBy,
         skip: (page - 1) * limit,
@@ -73,7 +88,8 @@ export async function GET(request: NextRequest) {
       db.pdf.count({ where }),
     ]);
 
-    return NextResponse.json({
+    // Cache for 5 seconds (changes more frequently)
+    const response = NextResponse.json({
       pdfs,
       pagination: {
         page,
@@ -82,6 +98,8 @@ export async function GET(request: NextRequest) {
         totalPages: Math.ceil(total / limit),
       },
     });
+    response.headers.set('Cache-Control', 'public, s-maxage=5, stale-while-revalidate=30');
+    return response;
   } catch (error: any) {
     console.error('Error fetching PDFs:', error);
     return NextResponse.json({ error: 'Failed to fetch PDFs' }, { status: 500 });

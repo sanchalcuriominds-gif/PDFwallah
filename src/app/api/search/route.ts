@@ -26,17 +26,32 @@ export async function GET(request: NextRequest) {
 
     const results = await db.pdf.findMany({
       where,
-      include: {
-        class: true,
-        subject: true,
-        chapter: true,
-        topic: true,
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        price: true,
+        mrp: true,
+        pageCount: true,
+        salesCount: true,
+        downloadCount: true,
+        featured: true,
+        thumbnailPath: true,
+        noteTypeId: true,
+        createdAt: true,
+        class: { select: { name: true, slug: true } },
+        subject: { select: { name: true, slug: true } },
+        chapter: { select: { name: true, slug: true } },
+        topic: { select: { name: true, slug: true } },
+        noteType: { select: { name: true, slug: true } },
       },
       take: limit,
       orderBy: { salesCount: 'desc' },
     });
 
-    return NextResponse.json({ results });
+    const response = NextResponse.json({ results });
+    response.headers.set('Cache-Control', 'public, s-maxage=10, stale-while-revalidate=30');
+    return response;
   } catch (error) {
     console.error('Error searching PDFs:', error);
     return NextResponse.json({ error: 'Search failed' }, { status: 500 });

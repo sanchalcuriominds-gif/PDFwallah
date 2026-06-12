@@ -11,26 +11,28 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug, subjectSlug, chapterSlug, topicSlug } = await params
 
   try {
-    const classes = await db.class.findMany()
-    const currentClass = classes.find((c: any) => c.slug === slug)
+    const currentClass = await db.class.findUnique({ where: { slug } })
     if (!currentClass) return { title: 'Topic Notes PDF' }
 
-    const subjects = await db.subject.findMany({ where: { classId: (currentClass as any).id } })
-    const currentSubject = subjects.find((s: any) => s.slug === subjectSlug)
+    const currentSubject = await db.subject.findFirst({
+      where: { slug: subjectSlug, classId: currentClass.id },
+    })
     if (!currentSubject) return { title: 'Topic Notes PDF' }
 
-    const chapters = await db.chapter.findMany({ where: { subjectId: (currentSubject as any).id } })
-    const currentChapter = chapters.find((ch: any) => ch.slug === chapterSlug)
+    const currentChapter = await db.chapter.findFirst({
+      where: { slug: chapterSlug, subjectId: currentSubject.id },
+    })
     if (!currentChapter) return { title: 'Topic Notes PDF' }
 
-    const topics = await db.topic.findMany({ where: { chapterId: (currentChapter as any).id } })
-    const currentTopic = topics.find((t: any) => t.slug === topicSlug)
+    const currentTopic = await db.topic.findFirst({
+      where: { slug: topicSlug, chapterId: currentChapter.id },
+    })
     if (!currentTopic) return { title: 'Topic Notes PDF' }
 
-    const className = (currentClass as any).name
-    const subjectName = (currentSubject as any).name
-    const chapterName = (currentChapter as any).name
-    const topicName = (currentTopic as any).name
+    const className = currentClass.name
+    const subjectName = currentSubject.name
+    const chapterName = currentChapter.name
+    const topicName = currentTopic.name
     const seoTitle = `${topicName} Notes PDF — ${className} ${subjectName} ${chapterName}`
     const seoDescription = `Download ${topicName} Notes PDF for ${className} ${subjectName} ${chapterName}. Handwritten notes, PYQs & revision material. Instant download.`
 

@@ -4,11 +4,20 @@ import { uploadFile, getPublicUrl, THUMBNAIL_BUCKET } from '@/lib/supabase';
 import { db } from '@/lib/db';
 
 // POST /api/admin/upload-thumbnail - Upload a custom thumbnail image for a PDF
+// Auth: Cookie-based admin session OR API key header (x-api-key)
 export async function POST(request: NextRequest) {
   try {
-    const token = request.cookies.get('admin_token')?.value;
-    if (!token || !(await validateAdminSession(token))) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    // Check API key first
+    const apiKey = request.headers.get('x-api-key');
+    const validApiKey = process.env.ADMIN_API_KEY;
+    const hasApiKey = apiKey && validApiKey && apiKey === validApiKey;
+
+    // If no API key, check admin session cookie
+    if (!hasApiKey) {
+      const token = request.cookies.get('admin_token')?.value;
+      if (!token || !(await validateAdminSession(token))) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
     }
 
     const formData = await request.formData();

@@ -10,7 +10,7 @@ interface ClassCardProps {
     id: string
     name: string
     slug: string
-    _count: {
+    _count?: {
       subjects: number
       pdfs: number
     }
@@ -54,11 +54,11 @@ export function ClassCard({ classData, index = 0 }: ClassCardProps) {
             <div className="flex items-center gap-3 text-xs text-muted-foreground">
               <span className="flex items-center gap-1">
                 <BookOpen className="w-3 h-3" />
-                {classData._count.subjects} Subjects
+                {classData._count?.subjects ?? 0} Subjects
               </span>
               <span className="flex items-center gap-1">
                 <FileText className="w-3 h-3" />
-                {classData._count.pdfs} Notes
+                {classData._count?.pdfs ?? 0} Notes
               </span>
             </div>
           </CardContent>

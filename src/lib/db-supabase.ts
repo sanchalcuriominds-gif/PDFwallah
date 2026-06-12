@@ -91,9 +91,16 @@ function applyPagination(query: any, options?: { skip?: number; take?: number; l
   return query;
 }
 
+// Normalize select/include into a single include-like structure
+// Prisma treats select and include equivalently for determining which relations to fetch
+function getInclude(options?: any): any {
+  if (!options) return undefined;
+  return options.select || options.include;
+}
+
 // ========== Class ==========
 export const classDb = {
-  findMany: async (options?: { orderBy?: any; include?: any; where?: any }) => {
+  findMany: async (options?: { orderBy?: any; include?: any; select?: any; where?: any }) => {
     const admin = getAdmin();
     let query = admin.from('Class').select('*');
 
@@ -113,8 +120,8 @@ export const classDb = {
     if (error) throw new Error(error.message);
 
     // Get counts separately if include._count is requested
-    if (options?.include?._count) {
-      const countSelects = options.include._count.select || {};
+    if (getInclude(options)?._count) {
+      const countSelects = getInclude(options)._count.select || {};
       const countFields = Object.keys(countSelects);
 
       const countMaps: Record<string, Record<string, number>> = {};
@@ -222,7 +229,7 @@ function processUpdateData(data: any): any {
 
 // ========== Subject ==========
 export const subjectDb = {
-  findMany: async (options?: { where?: any; orderBy?: any; include?: any }) => {
+  findMany: async (options?: { where?: any; orderBy?: any; include?: any; select?: any }) => {
     const admin = getAdmin();
 
     // Determine what to select
@@ -245,8 +252,8 @@ export const subjectDb = {
     if (error) throw new Error(error.message);
 
     // Get counts separately if include._count is requested
-    if (options?.include?._count) {
-      const countSelects = options.include._count.select || {};
+    if (getInclude(options)?._count) {
+      const countSelects = getInclude(options)._count.select || {};
       const countFields = Object.keys(countSelects);
 
       const countMaps: Record<string, Record<string, number>> = {};
@@ -280,11 +287,34 @@ export const subjectDb = {
     return data || [];
   },
 
-  findUnique: async (options: { where: { id: string } }) => {
+  findUnique: async (options: { where: { id?: string; slug?: string; classId?: string } }) => {
     const admin = getAdmin();
-    const { data, error } = await admin.from('Subject').select('*, class: Class(*)').eq('id', options.where.id).single();
+    let query = admin.from('Subject').select('*, class: Class(*)');
+    if (options.where.id) {
+      query = query.eq('id', options.where.id);
+    } else if (options.where.slug) {
+      query = query.eq('slug', options.where.slug);
+    }
+    const { data, error } = await query.single();
     if (error) return null;
     return data;
+  },
+
+  findFirst: async (options?: { where?: any; orderBy?: any; include?: any; select?: any }) => {
+    const admin = getAdmin();
+    let selectFields = '*, class: Class(*)';
+    let query = admin.from('Subject').select(selectFields);
+    if (options?.where) {
+      query = applyWhere(query, options.where);
+    }
+    if (options?.orderBy) {
+      query = applyOrderBy(query, options.orderBy);
+    }
+    query = query.limit(1);
+    const { data, error } = await query;
+    if (error) throw new Error(error.message);
+    if (!data || data.length === 0) return null;
+    return data[0];
   },
 
   create: async (options: { data: any }) => {
@@ -316,14 +346,14 @@ export const subjectDb = {
 
 // ========== Chapter ==========
 export const chapterDb = {
-  findMany: async (options?: { where?: any; include?: any; orderBy?: any }) => {
+  findMany: async (options?: { where?: any; include?: any; select?: any; orderBy?: any }) => {
     const admin = getAdmin();
 
     // Build select with nested includes
     let selectFields = '*, subject: Subject(*)';
 
     // Check for nested include: subject: { include: { class: true } }
-    if (options?.include?.subject?.include?.class || options?.include?.subject === true) {
+    if (getInclude(options)?.subject?.select?.class || getInclude(options)?.subject?.include?.class || getInclude(options)?.subject === true) {
       selectFields = '*, subject: Subject(*, class: Class(*))';
     }
 
@@ -342,8 +372,8 @@ export const chapterDb = {
     if (error) throw new Error(error.message);
 
     // Get counts separately if include._count is requested
-    if (options?.include?._count) {
-      const countSelects = options.include._count.select || {};
+    if (getInclude(options)?._count) {
+      const countSelects = getInclude(options)._count.select || {};
       const countFields = Object.keys(countSelects);
 
       const countMaps: Record<string, Record<string, number>> = {};
@@ -377,11 +407,35 @@ export const chapterDb = {
     return data || [];
   },
 
-  findUnique: async (options: { where: { id: string } }) => {
+  findUnique: async (options: { where: { id?: string; slug?: string; subjectId?: string } }) => {
     const admin = getAdmin();
-    const { data, error } = await admin.from('Chapter').select('*').eq('id', options.where.id).single();
+    let query = admin.from('Chapter').select('*, subject: Subject(*)');
+    if (options.where.id) {
+      query = query.eq('id', options.where.id);
+    } else if (options.where.slug) {
+      query = query.eq('slug', options.where.slug);
+    }
+    const { data, error } = await query.single();
     if (error) return null;
     return data;
+  },
+
+  findFirst: async (options?: { where?: any; orderBy?: any; include?: any; select?: any }) => {
+    const admin = getAdmin();
+    // Build select with nested includes
+    let selectFields = '*, subject: Subject(*, class: Class(*))';
+    let query = admin.from('Chapter').select(selectFields);
+    if (options?.where) {
+      query = applyWhere(query, options.where);
+    }
+    if (options?.orderBy) {
+      query = applyOrderBy(query, options.orderBy);
+    }
+    query = query.limit(1);
+    const { data, error } = await query;
+    if (error) throw new Error(error.message);
+    if (!data || data.length === 0) return null;
+    return data[0];
   },
 
   create: async (options: { data: any }) => {
@@ -413,7 +467,7 @@ export const chapterDb = {
 
 // ========== Topic ==========
 export const topicDb = {
-  findMany: async (options?: { where?: any; include?: any; orderBy?: any }) => {
+  findMany: async (options?: { where?: any; include?: any; select?: any; orderBy?: any }) => {
     const admin = getAdmin();
 
     // Build select with nested includes
@@ -421,11 +475,11 @@ export const topicDb = {
     // If include.chapter.include.subject.include.class: nested 3 levels
     let selectFields = '*, chapter: Chapter(*)';
 
-    if (options?.include?.chapter?.include?.subject?.include?.class) {
+    if (getInclude(options)?.chapter?.select?.subject?.select?.class || getInclude(options)?.chapter?.include?.subject?.include?.class || getInclude(options)?.chapter?.select?.subject?.include?.class || getInclude(options)?.chapter?.include?.subject?.select?.class) {
       selectFields = '*, chapter: Chapter(*, subject: Subject(*, class: Class(*)))';
-    } else if (options?.include?.chapter?.include?.subject) {
+    } else if (getInclude(options)?.chapter?.select?.subject || getInclude(options)?.chapter?.include?.subject) {
       selectFields = '*, chapter: Chapter(*, subject: Subject(*))';
-    } else if (options?.include?.chapter) {
+    } else if (getInclude(options)?.chapter) {
       selectFields = '*, chapter: Chapter(*)';
     }
 
@@ -444,8 +498,8 @@ export const topicDb = {
     if (error) throw new Error(error.message);
 
     // Get counts separately if include._count is requested
-    if (options?.include?._count) {
-      const countSelects = options.include._count.select || {};
+    if (getInclude(options)?._count) {
+      const countSelects = getInclude(options)._count.select || {};
       const countFields = Object.keys(countSelects);
 
       const countMaps: Record<string, Record<string, number>> = {};
@@ -478,11 +532,34 @@ export const topicDb = {
     return data || [];
   },
 
-  findUnique: async (options: { where: { id: string } }) => {
+  findUnique: async (options: { where: { id?: string; slug?: string; chapterId?: string } }) => {
     const admin = getAdmin();
-    const { data, error } = await admin.from('Topic').select('*').eq('id', options.where.id).single();
+    let query = admin.from('Topic').select('*');
+    if (options.where.id) {
+      query = query.eq('id', options.where.id);
+    } else if (options.where.slug) {
+      query = query.eq('slug', options.where.slug);
+    }
+    const { data, error } = await query.single();
     if (error) return null;
     return data;
+  },
+
+  findFirst: async (options?: { where?: any; orderBy?: any; include?: any; select?: any }) => {
+    const admin = getAdmin();
+    let selectFields = '*, chapter: Chapter(*, subject: Subject(*, class: Class(*)))';
+    let query = admin.from('Topic').select(selectFields);
+    if (options?.where) {
+      query = applyWhere(query, options.where);
+    }
+    if (options?.orderBy) {
+      query = applyOrderBy(query, options.orderBy);
+    }
+    query = query.limit(1);
+    const { data, error } = await query;
+    if (error) throw new Error(error.message);
+    if (!data || data.length === 0) return null;
+    return data[0];
   },
 
   create: async (options: { data: any }) => {
@@ -521,6 +598,7 @@ export const pdfDb = {
     take?: number;
     skip?: number;
     include?: any;
+    select?: any;
   }) => {
     const admin = getAdmin();
     let query = admin.from('Pdf').select('*, class: Class(*), subject: Subject(*), chapter: Chapter(*), topic: Topic(*)');
@@ -556,7 +634,7 @@ export const pdfDb = {
     }));
 
     // Get order counts if include._count is requested
-    if (options?.include?._count?.select?.orders) {
+    if (getInclude(options)?._count?.select?.orders) {
       const { data: orderData } = await admin.from('Order').select('pdfId');
       const orderCountMap: Record<string, number> = {};
       (orderData || []).forEach((o: any) => {
@@ -574,30 +652,30 @@ export const pdfDb = {
     return pdfsWithNoteType;
   },
 
-  findUnique: async (options: { where: { id: string }; include?: any }) => {
+  findUnique: async (options: { where: { id: string }; include?: any; select?: any }) => {
     const admin = getAdmin();
 
     // Build select with all needed relations
     let selectFields = '*';
     const includes: string[] = [];
 
-    if (options.include?.class || options.include) {
+    if (getInclude(options)?.class || getInclude(options)) {
       includes.push('class: Class(*)');
     }
-    if (options.include?.subject || options.include) {
+    if (getInclude(options)?.subject || getInclude(options)) {
       includes.push('subject: Subject(*)');
     }
-    if (options.include?.chapter || options.include) {
+    if (getInclude(options)?.chapter || getInclude(options)) {
       includes.push('chapter: Chapter(*)');
     }
-    if (options.include?.topic || options.include) {
+    if (getInclude(options)?.topic || getInclude(options)) {
       includes.push('topic: Topic(*)');
     }
     // noteType is resolved manually after query (no FK in Supabase)
-    // if (options.include?.noteType || options.include) {
+    // if (getInclude(options)?.noteType || getInclude(options)) {
     //   includes.push('noteType: NoteType(*)');
     // }
-    if (options.include?.orders) {
+    if (getInclude(options)?.orders) {
       includes.push('orders: Order(*)');
     }
 
@@ -642,7 +720,7 @@ export const pdfDb = {
     return result;
   },
 
-  update: async (options: { where: { id: string }; data: any; include?: any }) => {
+  update: async (options: { where: { id: string }; data: any; include?: any; select?: any }) => {
     const admin = getAdmin();
 
     // Handle increment: { salesCount: { increment: 1 } }
@@ -707,12 +785,12 @@ export const pdfDb = {
 
 // ========== Order ==========
 export const orderDb = {
-  findUnique: async (options: { where: { id?: string; downloadToken?: string }; include?: any }) => {
+  findUnique: async (options: { where: { id?: string; downloadToken?: string }; include?: any; select?: any }) => {
     const admin = getAdmin();
 
     // Determine select fields based on include
     let selectFields = '*';
-    if (options.include?.pdf) {
+    if (getInclude(options)?.pdf) {
       selectFields = '*, pdf: Pdf(*, class: Class(*), subject: Subject(*), chapter: Chapter(*), topic: Topic(*))';
     }
 
@@ -725,8 +803,8 @@ export const orderDb = {
     if (error) return null;
 
     // If include.pdf.select was specified, filter the pdf fields
-    if (data && options.include?.pdf?.select) {
-      const selectFields2 = Object.keys(options.include.pdf.select);
+    if (data && getInclude(options)?.pdf?.select) {
+      const selectFields2 = Object.keys(getInclude(options).pdf.select);
       const filteredPdf: any = {};
       for (const field of selectFields2) {
         if (data.pdf && data.pdf[field] !== undefined) {
@@ -739,12 +817,12 @@ export const orderDb = {
     return data;
   },
 
-  findFirst: async (options?: { where?: any; orderBy?: any; include?: any }) => {
+  findFirst: async (options?: { where?: any; orderBy?: any; include?: any; select?: any }) => {
     const admin = getAdmin();
 
     // Determine select fields based on include
     let selectFields = '*, pdf: Pdf(*)';
-    if (options?.include?.pdf) {
+    if (getInclude(options)?.pdf) {
       selectFields = '*, pdf: Pdf(*, class: Class(*), subject: Subject(*), chapter: Chapter(*), topic: Topic(*))';
     }
 
@@ -769,8 +847,8 @@ export const orderDb = {
 
     // If include.pdf.select was specified, filter the pdf fields
     const result = data[0];
-    if (options?.include?.pdf?.select && result.pdf) {
-      const selectFields2 = Object.keys(options.include.pdf.select);
+    if (getInclude(options)?.pdf?.select && result.pdf) {
+      const selectFields2 = Object.keys(getInclude(options).pdf.select);
       const filteredPdf: any = {};
       for (const field of selectFields2) {
         if (result.pdf[field] !== undefined) {
@@ -783,12 +861,12 @@ export const orderDb = {
     return result;
   },
 
-  findMany: async (options?: { where?: any; orderBy?: any; limit?: number; take?: number; include?: any }) => {
+  findMany: async (options?: { where?: any; orderBy?: any; limit?: number; take?: number; include?: any; select?: any }) => {
     const admin = getAdmin();
 
     // Determine select fields based on include
     let selectFields = '*, pdf: Pdf(*)';
-    if (options?.include?.pdf) {
+    if (getInclude(options)?.pdf) {
       selectFields = '*, pdf: Pdf(*, class: Class(*), subject: Subject(*), chapter: Chapter(*), topic: Topic(*))';
     }
 
@@ -810,8 +888,8 @@ export const orderDb = {
     if (error) throw new Error(error.message);
 
     // If include.pdf.select was specified, filter the pdf fields in each order
-    if (options?.include?.pdf?.select) {
-      const selectFields2 = Object.keys(options.include.pdf.select);
+    if (getInclude(options)?.pdf?.select) {
+      const selectFields2 = Object.keys(getInclude(options).pdf.select);
       return (data || []).map((order: any) => {
         if (order.pdf) {
           const filteredPdf: any = {};
@@ -837,11 +915,11 @@ export const orderDb = {
     return result;
   },
 
-  update: async (options: { where: { id: string }; data: any; include?: any }) => {
+  update: async (options: { where: { id: string }; data: any; include?: any; select?: any }) => {
     const admin = getAdmin();
 
     let selectFields = '*';
-    if (options.include?.pdf) {
+    if (getInclude(options)?.pdf) {
       selectFields = '*, pdf: Pdf(*, class: Class(*), subject: Subject(*), chapter: Chapter(*), topic: Topic(*))';
     }
 
