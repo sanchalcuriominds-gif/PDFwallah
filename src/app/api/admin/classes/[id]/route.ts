@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { validateAdminSession } from '@/lib/admin-auth';
 
-// DELETE /api/admin/classes/[id] - Delete a class and all its children
+// DELETE /api/admin/classes/[id] - Delete a class and all its children (subjects, chapters, topics, PDFs, orders)
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -21,38 +21,50 @@ export async function DELETE(
       return NextResponse.json({ error: 'Class not found' }, { status: 404 });
     }
 
-    // Check for associated PDFs
-    const pdfs = await db.pdf.findMany({ where: { classId: id }, take: 1 });
-    if (pdfs.length > 0) {
-      return NextResponse.json({
-        error: 'Cannot delete class with associated PDFs. Delete or reassign the PDFs first.',
-      }, { status: 400 });
-    }
+    // Cascade-delete in the correct FK order inside a transaction:
+    //   1. Orders that reference PDFs under this class
+    //   2. PDFs under this class
+    //   3. Topics under all chapters of all subjects of this class
+    //   4. Chapters under all subjects of this class
+    //   5. Subjects under this class
+    //   6. The class itself
+    await db.$transaction(async (tx) => {
+      const pdfIds = (await tx.pdf.findMany({
+        where: { classId: id },
+        select: { id: true },
+      })).map(p => p.id);
 
-    // Delete in order: topics → chapters → subjects → class
-    // First find all subjects under this class
-    const subjects = await db.subject.findMany({ where: { classId: id } });
-
-    for (const subject of subjects) {
-      // Find chapters under each subject
-      const chapters = await db.chapter.findMany({ where: { subjectId: subject.id } });
-
-      for (const chapter of chapters) {
-        // Delete topics under each chapter
-        await db.topic.deleteMany({ where: { chapterId: chapter.id } });
+      if (pdfIds.length > 0) {
+        await tx.order.deleteMany({ where: { pdfId: { in: pdfIds } } });
+        await tx.pdf.deleteMany({ where: { id: { in: pdfIds } } });
       }
 
-      // Delete chapters under each subject
-      await db.chapter.deleteMany({ where: { subjectId: subject.id } });
-    }
+      const subjectIds = (await tx.subject.findMany({
+        where: { classId: id },
+        select: { id: true },
+      })).map(s => s.id);
 
-    // Delete subjects under this class
-    await db.subject.deleteMany({ where: { classId: id } });
+      if (subjectIds.length > 0) {
+        const chapterIds = (await tx.chapter.findMany({
+          where: { subjectId: { in: subjectIds } },
+          select: { id: true },
+        })).map(c => c.id);
 
-    // Finally delete the class
-    await db.class.delete({ where: { id } });
+        if (chapterIds.length > 0) {
+          await tx.topic.deleteMany({ where: { chapterId: { in: chapterIds } } });
+          await tx.chapter.deleteMany({ where: { id: { in: chapterIds } } });
+        }
 
-    return NextResponse.json({ success: true, message: `Class "${cls.name}" deleted successfully` });
+        await tx.subject.deleteMany({ where: { id: { in: subjectIds } } });
+      }
+
+      await tx.class.delete({ where: { id } });
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: `Class "${cls.name}" deleted successfully`,
+    });
   } catch (error) {
     console.error('Error deleting class:', error);
     return NextResponse.json({ error: 'Failed to delete class' }, { status: 500 });

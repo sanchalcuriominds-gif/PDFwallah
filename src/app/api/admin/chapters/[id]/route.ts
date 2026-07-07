@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { validateAdminSession } from '@/lib/admin-auth';
 
-// DELETE /api/admin/chapters/[id] - Delete a chapter and all its children
+// DELETE /api/admin/chapters/[id] - Delete a chapter and all its children (topics, PDFs, orders)
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -21,19 +21,30 @@ export async function DELETE(
       return NextResponse.json({ error: 'Chapter not found' }, { status: 404 });
     }
 
-    // Check for associated PDFs
-    const pdfs = await db.pdf.findMany({ where: { chapterId: id }, take: 1 });
-    if (pdfs.length > 0) {
-      return NextResponse.json({
-        error: 'Cannot delete chapter with associated PDFs. Delete or reassign the PDFs first.',
-      }, { status: 400 });
-    }
+    // Cascade-delete in the correct FK order inside a transaction:
+    //   1. Orders that reference PDFs under this chapter
+    //   2. PDFs under this chapter
+    //   3. Topics under this chapter
+    //   4. The chapter itself
+    await db.$transaction(async (tx) => {
+      const pdfIds = (await tx.pdf.findMany({
+        where: { chapterId: id },
+        select: { id: true },
+      })).map(p => p.id);
 
-    // Delete topics first, then chapter
-    await db.topic.deleteMany({ where: { chapterId: id } });
-    await db.chapter.delete({ where: { id } });
+      if (pdfIds.length > 0) {
+        await tx.order.deleteMany({ where: { pdfId: { in: pdfIds } } });
+        await tx.pdf.deleteMany({ where: { id: { in: pdfIds } } });
+      }
 
-    return NextResponse.json({ success: true, message: `Chapter "${chapter.name}" deleted successfully` });
+      await tx.topic.deleteMany({ where: { chapterId: id } });
+      await tx.chapter.delete({ where: { id } });
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: `Chapter "${chapter.name}" deleted successfully`,
+    });
   } catch (error) {
     console.error('Error deleting chapter:', error);
     return NextResponse.json({ error: 'Failed to delete chapter' }, { status: 500 });
